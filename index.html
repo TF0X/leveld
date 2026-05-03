@@ -38,9 +38,42 @@
       </div>
 
       <div class="ob-step hidden" data-step="3">
+        <h2>Body &amp; calories</h2>
+        <div class="goal-grid">
+          <label>Age <input id="ob-age" type="number" min="1" inputmode="numeric" /></label>
+          <label>Sex
+            <select id="ob-sex">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+          <label>Height (cm) <input id="ob-height" type="number" min="1" step="0.1" inputmode="decimal" /></label>
+          <label>Weight (kg) <input id="ob-weight" type="number" min="1" step="0.1" inputmode="decimal" /></label>
+          <label>Activity
+            <select id="ob-activity">
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Light</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="very_active">Very active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+          </label>
+          <label>Goal
+            <select id="ob-goal-preset">
+              <option value="lose">Lose</option>
+              <option value="maintain" selected>Maintain</option>
+              <option value="gain">Gain</option>
+            </select>
+          </label>
+          <label>Target calories <input id="ob-cal" type="number" value="2200" /></label>
+        </div>
+        <p class="muted small" id="ob-bmi">BMI: —</p>
+        <p class="muted small" id="ob-maintenance">Maintenance: —</p>
+      </div>
+
+      <div class="ob-step hidden" data-step="4">
         <h2>Daily goals</h2>
         <div class="goal-grid">
-          <label>Calories <input id="ob-cal" type="number" value="2200" /></label>
           <label>Protein (g) <input id="ob-pro" type="number" value="150" /></label>
           <label>Water (ml) <input id="ob-water" type="number" value="3000" /></label>
           <label>Workouts/wk <input id="ob-workouts" type="number" value="4" /></label>
@@ -48,7 +81,7 @@
         </div>
       </div>
 
-      <div class="ob-step hidden" data-step="4">
+      <div class="ob-step hidden" data-step="5">
         <h2>Pick your hobbies</h2>
         <div id="ob-hobby-grid" class="hobby-grid"></div>
         <div class="custom-hobby-row">
@@ -63,7 +96,7 @@
         <button id="ob-next" class="btn btn-primary">Next</button>
       </div>
       <div class="ob-dots">
-        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       </div>
     </div>
   </div>
@@ -234,9 +267,40 @@
         <label class="lbl">Key <input id="set-key" type="password" placeholder="AIza..." /></label>
         <button class="btn btn-sm" id="set-save-key">Save key</button>
 
+        <h3 class="sec-title">Body &amp; calories</h3>
+        <div class="goal-grid">
+          <label>Age <input id="set-age" type="number" min="1" inputmode="numeric" /></label>
+          <label>Sex
+            <select id="set-sex">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+          <label>Height (cm) <input id="set-height" type="number" min="1" step="0.1" inputmode="decimal" /></label>
+          <label>Weight (kg) <input id="set-weight" type="number" min="1" step="0.1" inputmode="decimal" /></label>
+          <label>Activity
+            <select id="set-activity">
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Light</option>
+              <option value="moderate">Moderate</option>
+              <option value="very_active">Very active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+          </label>
+          <label>Goal
+            <select id="set-goal-preset">
+              <option value="lose">Lose</option>
+              <option value="maintain">Maintain</option>
+              <option value="gain">Gain</option>
+            </select>
+          </label>
+          <label>Target calories <input id="set-cal" type="number" /></label>
+        </div>
+        <p class="muted small" id="set-bmi">BMI: —</p>
+        <p class="muted small" id="set-maintenance">Maintenance: —</p>
+
         <h3 class="sec-title">Daily goals</h3>
         <div class="goal-grid">
-          <label>Calories <input id="set-cal" type="number" /></label>
           <label>Protein (g) <input id="set-pro" type="number" /></label>
           <label>Water (ml) <input id="set-water" type="number" /></label>
           <label>Workouts/wk <input id="set-workouts" type="number" /></label>
