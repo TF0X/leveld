@@ -233,6 +233,9 @@ function geminiErrToMsg(e) {
   if (m.includes('NO_KEY')) return 'Add Gemini key in Settings';
   if (m.includes('429')) return 'Rate limited — try again in a sec';
   if (m.includes('BAD_JSON')) return 'Could not parse Gemini response';
+  if (m.includes('EMPTY_RESPONSE_SAFETY')) return 'Gemini blocked the response';
+  if (m.includes('EMPTY_RESPONSE_MAX_TOKENS')) return 'Gemini response was truncated — try again';
+  if (m.includes('EMPTY_RESPONSE')) return 'Gemini returned an empty response';
   if (m.startsWith('GEMINI_')) return 'Gemini API error';
   return 'Network error — are you online?';
 }

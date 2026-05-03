@@ -41,8 +41,7 @@ async function boot() {
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  // sw.js sits next to index.html
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => reg.update()).catch(() => {});
 }
 
 // ---------- Onboarding ----------

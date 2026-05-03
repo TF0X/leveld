@@ -23,13 +23,18 @@ function parseJSON(text) {
   try { return JSON.parse(s.slice(start, end + 1)); } catch { return null; }
 }
 
-async function callGemini(parts, { temperature = 0.4, maxTokens = 800 } = {}) {
+async function callGemini(parts, { temperature = 0.4, maxTokens = 1024, json = false } = {}) {
   const key = await getKey();
   if (!key) throw new Error('NO_KEY');
-  const body = {
-    contents: [{ role: 'user', parts }],
-    generationConfig: { temperature, maxOutputTokens: maxTokens, responseMimeType: 'text/plain' },
+  const generationConfig = {
+    temperature,
+    maxOutputTokens: maxTokens,
+    // Gemini 2.5 Flash has thinking ON by default, which silently consumes the
+    // output budget and returns empty text. Disable it for our short structured calls.
+    thinkingConfig: { thinkingBudget: 0 },
   };
+  if (json) generationConfig.responseMimeType = 'application/json';
+  const body = { contents: [{ role: 'user', parts }], generationConfig };
   const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(key)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -37,10 +42,15 @@ async function callGemini(parts, { temperature = 0.4, maxTokens = 800 } = {}) {
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(`GEMINI_${res.status}: ${errText.slice(0, 120)}`);
+    throw new Error(`GEMINI_${res.status}: ${errText.slice(0, 200)}`);
   }
-  const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  const data = await res.json();
+  const cand = data?.candidates?.[0];
+  const text = cand?.content?.parts?.map((p) => p.text).filter(Boolean).join('') || '';
+  if (!text) {
+    console.warn('[gemini] empty text response', { finishReason: cand?.finishReason, usage: data?.usageMetadata, raw: data });
+    throw new Error(`EMPTY_RESPONSE_${cand?.finishReason || 'UNKNOWN'}`);
+  }
   return text;
 }
 
@@ -86,10 +96,10 @@ Return ONLY valid JSON, no prose, no markdown:
     { text: prompt },
     { inlineData: { mimeType: 'image/jpeg', data: base64Strip(dataUrlBase64) } },
   ];
-  const text = await callGemini(parts, { temperature: 0.3, maxTokens: 400 });
-  const json = parseJSON(text);
-  if (!json) throw new Error('BAD_JSON');
-  return json;
+  const text = await callGemini(parts, { temperature: 0.3, maxTokens: 800, json: true });
+  const out = parseJSON(text);
+  if (!out) { console.warn('[gemini] photo bad json:', text); throw new Error('BAD_JSON'); }
+  return out;
 }
 
 export async function analyzeMealText(text, goals) {
@@ -103,7 +113,7 @@ Return ONLY valid JSON:
   "nutrition": { "calories": int, "protein": int, "carbs": int, "fat": int, "fiber": int },
   "confidence": "low" | "medium" | "high"
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.3, maxTokens: 300 });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.3, maxTokens: 300, json: true });
   const json = parseJSON(out);
   if (!json) throw new Error('BAD_JSON');
   return json;
@@ -122,7 +132,7 @@ Return ONLY valid JSON:
   "outputScore": int 0-100,
   "llmNote": "one short sentence (max 18 words), specific to today"
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.5, maxTokens: 250 });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.5, maxTokens: 250, json: true });
   const json = parseJSON(out);
   if (!json) throw new Error('BAD_JSON');
   return json;
@@ -147,7 +157,7 @@ Also return an updated rolling summary (compress to ~150 tokens). Return ONLY va
     "streak_record": int
   }
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.6, maxTokens: 600 });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.6, maxTokens: 600, json: true });
   const json = parseJSON(out);
   if (!json) throw new Error('BAD_JSON');
   return json;

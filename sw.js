@@ -1,5 +1,5 @@
 // LifeTracker service worker — cache-first app shell.
-const VERSION = 'lt-v1.0.0';
+const VERSION = 'lt-v1.0.1';
 const SHELL = [
   './',
   './index.html',
