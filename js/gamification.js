@@ -48,6 +48,7 @@ async function rawAwardXP(baseXP, reason = '') {
   let level = p.level;
   while (totalXP >= xpForLevel(level + 1)) level++;
   const next = await saveProfile({ totalXP, level });
+  document.dispatchEvent(new Event('lt:refresh-home'));
   showXP(`+${xp} XP${mult > 1 ? ` ×${mult}` : ''}${reason ? ` · ${reason}` : ''}`);
   if (level > startLevel) {
     showLevelUp(level, rankFor(level));
