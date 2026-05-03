@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#00ff88" />
+  <meta name="description" content="LifeTracker — gamified offline-first life tracker" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <title>LifeTracker</title>
+</head>
+<body>
+  <!-- Onboarding -->
+  <div id="onboarding" class="screen onboarding hidden">
+    <div class="onboarding-inner">
+      <div class="brand">
+        <div class="brand-logo">LT</div>
+        <h1>LifeTracker</h1>
+        <p class="tag">Gamified life. Local first.</p>
+      </div>
+
+      <div class="ob-step" data-step="1">
+        <h2>What's your name?</h2>
+        <input id="ob-name" type="text" placeholder="Your name" autocomplete="off" />
+      </div>
+
+      <div class="ob-step hidden" data-step="2">
+        <h2>Gemini API key</h2>
+        <p class="muted">For meal AI &amp; weekly insights. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">Google AI Studio</a>.</p>
+        <input id="ob-key" type="password" placeholder="Paste key (optional, can add later)" autocomplete="off" />
+      </div>
+
+      <div class="ob-step hidden" data-step="3">
+        <h2>Daily goals</h2>
+        <div class="goal-grid">
+          <label>Calories <input id="ob-cal" type="number" value="2200" /></label>
+          <label>Protein (g) <input id="ob-pro" type="number" value="150" /></label>
+          <label>Water (ml) <input id="ob-water" type="number" value="3000" /></label>
+          <label>Workouts/wk <input id="ob-workouts" type="number" value="4" /></label>
+          <label>Hobby min/day <input id="ob-hobby" type="number" value="60" /></label>
+        </div>
+      </div>
+
+      <div class="ob-step hidden" data-step="4">
+        <h2>Pick your hobbies</h2>
+        <div id="ob-hobby-grid" class="hobby-grid"></div>
+        <div class="custom-hobby-row">
+          <input id="ob-custom-hobby" type="text" placeholder="Custom hobby name" />
+          <input id="ob-custom-icon" type="text" placeholder="🎯" maxlength="2" />
+          <button id="ob-add-hobby" class="btn btn-ghost">Add</button>
+        </div>
+      </div>
+
+      <div class="ob-actions">
+        <button id="ob-back" class="btn btn-ghost hidden">Back</button>
+        <button id="ob-next" class="btn btn-primary">Next</button>
+      </div>
+      <div class="ob-dots">
+        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- App shell -->
+  <div id="app" class="hidden">
+    <header class="app-header">
+      <div class="hd-left">
+        <div class="lvl-badge" id="hd-level">1</div>
+        <div>
+          <div class="hd-rank" id="hd-rank">Beginner</div>
+          <div class="hd-xp-bar"><span id="hd-xp-fill"></span></div>
+        </div>
+      </div>
+      <div class="hd-right">
+        <div class="streak" id="hd-streak"><span class="flame">🔥</span><span id="hd-streak-num">0</span></div>
+        <div class="freeze" id="hd-freeze" title="Streak freezes"><span>❄</span><span id="hd-freeze-num">0</span></div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Home -->
+      <section class="screen" id="screen-home">
+        <div id="backup-banner" class="banner hidden">
+          <span>You haven't backed up in a while.</span>
+          <button class="btn btn-sm" id="banner-export">Export now</button>
+        </div>
+
+        <div class="rings-row">
+          <div class="ring-card">
+            <svg class="ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52" />
+              <circle class="ring-fg" id="ring-cal" cx="60" cy="60" r="52" stroke="#4488ff" />
+            </svg>
+            <div class="ring-label">
+              <div class="ring-num" id="num-cal">0</div>
+              <div class="ring-cap">cal</div>
+            </div>
+          </div>
+          <div class="ring-card">
+            <svg class="ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52" />
+              <circle class="ring-fg" id="ring-pro" cx="60" cy="60" r="52" stroke="#00ff88" />
+            </svg>
+            <div class="ring-label">
+              <div class="ring-num" id="num-pro">0</div>
+              <div class="ring-cap">protein</div>
+            </div>
+          </div>
+          <div class="ring-card">
+            <svg class="ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52" />
+              <circle class="ring-fg" id="ring-water" cx="60" cy="60" r="52" stroke="#00ccff" />
+            </svg>
+            <div class="ring-label">
+              <div class="ring-num" id="num-water">0</div>
+              <div class="ring-cap">water</div>
+            </div>
+            <div class="water-controls">
+              <button class="btn btn-xs" data-water="-250">−250</button>
+              <button class="btn btn-xs" data-water="250">+250</button>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="sec-title">Daily quests</h3>
+        <ul id="quest-list" class="quest-list"></ul>
+
+        <h3 class="sec-title">Quick log</h3>
+        <div class="quick-grid">
+          <button class="quick-btn" data-go="meals"><span>🍳</span>Meal</button>
+          <button class="quick-btn" data-go="workout"><span>💪</span>Workout</button>
+          <button class="quick-btn" data-go="hobbies"><span>🎨</span>Hobby</button>
+          <button class="quick-btn" id="quick-weight"><span>⚖️</span>Weight</button>
+        </div>
+      </section>
+
+      <!-- Workout -->
+      <section class="screen hidden" id="screen-workout">
+        <div class="row-between">
+          <input id="wo-name" type="text" placeholder="Workout name" />
+          <button class="btn btn-sm" id="wo-add-ex">+ Exercise</button>
+        </div>
+        <div id="wo-exercises" class="ex-list"></div>
+        <div class="wo-meta">
+          <div class="meta-card">
+            <div class="meta-num" id="wo-volume">0</div>
+            <div class="meta-cap">total kg</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-num" id="wo-timer">0:00</div>
+            <div class="meta-cap">rest</div>
+          </div>
+          <div class="rest-btns">
+            <button class="btn btn-xs" data-rest="60">60s</button>
+            <button class="btn btn-xs" data-rest="90">90s</button>
+            <button class="btn btn-xs" data-rest="120">120s</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" id="wo-save">Save Workout</button>
+      </section>
+
+      <!-- Meals -->
+      <section class="screen hidden" id="screen-meals">
+        <div class="meal-rings">
+          <div class="mini-ring" data-color="#4488ff"><div class="mr-num" id="mr-cal">0</div><div class="mr-cap">cal</div></div>
+          <div class="mini-ring" data-color="#00ff88"><div class="mr-num" id="mr-pro">0</div><div class="mr-cap">P</div></div>
+          <div class="mini-ring" data-color="#ffaa00"><div class="mr-num" id="mr-carbs">0</div><div class="mr-cap">C</div></div>
+          <div class="mini-ring" data-color="#ff5588"><div class="mr-num" id="mr-fat">0</div><div class="mr-cap">F</div></div>
+        </div>
+        <div id="meal-slots" class="meal-slots"></div>
+      </section>
+
+      <!-- Hobbies -->
+      <section class="screen hidden" id="screen-hobbies">
+        <h3 class="sec-title">Today's hobbies</h3>
+        <div id="hobby-tiles" class="hobby-tiles"></div>
+        <button class="btn btn-ghost btn-block" id="hb-custom">+ Custom activity</button>
+        <h3 class="sec-title">Activity log</h3>
+        <div id="hb-log" class="log-list"></div>
+      </section>
+
+      <!-- Progress -->
+      <section class="screen hidden" id="screen-progress">
+        <div class="range-tabs" id="range-tabs">
+          <button data-range="7" class="active">7D</button>
+          <button data-range="30">30D</button>
+          <button data-range="90">90D</button>
+          <button data-range="all">All</button>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
+        <div id="day-detail" class="day-detail hidden"></div>
+
+        <div class="insight-card">
+          <div class="row-between">
+            <h3>Weekly insight</h3>
+            <button class="btn btn-xs" id="refresh-insight">Refresh</button>
+          </div>
+          <p id="insight-text" class="muted">No insight yet — log a few days then refresh.</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-num" id="st-meals">0</div><div class="stat-cap">meals</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-workouts">0</div><div class="stat-cap">workouts</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-volume">0</div><div class="stat-cap">total kg</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-hobby">0</div><div class="stat-cap">hobby min</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-streak">0</div><div class="stat-cap">best streak</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-xp">0</div><div class="stat-cap">total XP</div></div>
+        </div>
+
+        <h3 class="sec-title">Personal records</h3>
+        <div id="pr-table" class="pr-table"></div>
+
+        <h3 class="sec-title">Achievements</h3>
+        <div id="ach-grid" class="ach-grid"></div>
+
+        <h3 class="sec-title">Bodyweight</h3>
+        <div class="chart-wrap"><canvas id="chart-bw"></canvas></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="screen hidden" id="screen-settings">
+        <h3 class="sec-title">Profile</h3>
+        <label class="lbl">Name <input id="set-name" type="text" /></label>
+
+        <h3 class="sec-title">Gemini API key</h3>
+        <p class="muted small">Stored only in your browser (IndexedDB). Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">aistudio.google.com/apikey</a>.</p>
+        <label class="lbl">Key <input id="set-key" type="password" placeholder="AIza..." /></label>
+        <button class="btn btn-sm" id="set-save-key">Save key</button>
+
+        <h3 class="sec-title">Daily goals</h3>
+        <div class="goal-grid">
+          <label>Calories <input id="set-cal" type="number" /></label>
+          <label>Protein (g) <input id="set-pro" type="number" /></label>
+          <label>Water (ml) <input id="set-water" type="number" /></label>
+          <label>Workouts/wk <input id="set-workouts" type="number" /></label>
+          <label>Hobby min/day <input id="set-hobby" type="number" /></label>
+        </div>
+        <button class="btn btn-sm" id="set-save-goals">Save goals</button>
+
+        <h3 class="sec-title">Hobbies</h3>
+        <div id="set-hobbies" class="hobby-grid"></div>
+        <div class="custom-hobby-row">
+          <input id="set-new-hobby" type="text" placeholder="Custom hobby" />
+          <input id="set-new-icon" type="text" placeholder="🎯" maxlength="2" />
+          <button class="btn btn-ghost" id="set-add-hobby">Add</button>
+        </div>
+
+        <h3 class="sec-title">Data</h3>
+        <div class="row-wrap">
+          <button class="btn btn-sm" id="set-export">Export JSON</button>
+          <label class="btn btn-sm file-btn">
+            Import JSON
+            <input id="set-import" type="file" accept="application/json" hidden />
+          </label>
+          <button class="btn btn-sm btn-danger" id="set-clear">Clear all data</button>
+        </div>
+        <p class="muted small" id="last-backup-text"></p>
+
+        <h3 class="sec-title">About</h3>
+        <p class="muted small">LifeTracker · v1.0 · Offline first · No account · Data stays on this device.</p>
+      </section>
+    </main>
+
+    <nav class="tab-bar">
+      <button data-tab="home" class="active"><span>🏠</span>Home</button>
+      <button data-tab="workout"><span>💪</span>Workout</button>
+      <button data-tab="meals"><span>🍳</span>Meals</button>
+      <button data-tab="hobbies"><span>🎨</span>Hobbies</button>
+      <button data-tab="progress"><span>📈</span>Progress</button>
+      <button data-tab="settings"><span>⚙️</span></button>
+    </nav>
+  </div>
+
+  <!-- Modal root -->
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  <div id="overlay-root"></div>
+
+  <!-- Libs -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
