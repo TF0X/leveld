@@ -136,7 +136,7 @@ async function openMealModal(type) {
         btn.disabled = true; btn.textContent = 'Thinking…';
         try {
           const profile = await getProfile();
-          const r = await analyzeMealText(t, profile.goals);
+          const r = await analyzeMealText(t, profile.goals, profile.dietPreference);
           await saveMeal(type, r, 'text');
           close('ok');
         } catch (e) {
@@ -166,7 +166,7 @@ async function openMealModal(type) {
         btn.disabled = true; btn.textContent = 'Analyzing…';
         try {
           const profile = await getProfile();
-          const r = await analyzeMealPhoto(pendingDataUrl, profile.goals);
+          const r = await analyzeMealPhoto(pendingDataUrl, profile.goals, profile.dietPreference);
           await saveMeal(type, { ...r, imageBase64: pendingDataUrl }, 'photo');
           close('ok');
         } catch (e) {

@@ -285,7 +285,7 @@ async function refreshHome() {
   $('#hd-level').textContent = p.level;
   $('#hd-rank').textContent = rankFor(p.level);
   const next = xpForLevel(p.level + 1);
-  const cur = xpForLevel(p.level);
+  const cur = p.level <= 1 ? 0 : xpForLevel(p.level);
   const pct = Math.min(100, Math.round(((p.totalXP - cur) / Math.max(1, next - cur)) * 100));
   $('#hd-xp-fill').style.width = `${Math.max(0, pct)}%`;
   $('#hd-streak-num').textContent = p.streak || 0;
@@ -383,6 +383,7 @@ async function refreshSettings() {
   $('#set-key').dataset.placeholder = p.geminiApiKey ? 'set' : 'empty';
   $('#set-age').value = p.age || '';
   $('#set-sex').value = p.sex || 'male';
+  $('#set-diet').value = p.dietPreference || '';
   $('#set-height').value = p.heightCm || '';
   $('#set-weight').value = latestWeight || '';
   $('#set-activity').value = p.activityLevel || 'moderate';
@@ -469,6 +470,7 @@ function wireSettings() {
       name: $('#set-name').value.trim(),
       age: age || null,
       sex: $('#set-sex').value,
+      dietPreference: $('#set-diet').value.trim(),
       heightCm: heightCm || null,
       activityLevel: $('#set-activity').value,
       calorieGoalPreset: $('#set-goal-preset').value,

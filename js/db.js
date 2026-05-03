@@ -70,6 +70,7 @@ const DEFAULT_PROFILE = {
   heightCm: null,
   activityLevel: 'moderate',
   calorieGoalPreset: 'maintain',
+  dietPreference: '',
   goals: { calories: 2200, protein: 150, water: 3000, workoutsPerWeek: 4, hobbyMinutes: 60 },
   hobbies: [],
   level: 1,

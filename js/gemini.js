@@ -83,8 +83,10 @@ function base64Strip(dataUrl) {
   return idx === -1 ? dataUrl : dataUrl.slice(idx + 1);
 }
 
-export async function analyzeMealPhoto(dataUrlBase64, goals) {
-  const prompt = `You are a nutrition estimator. Identify the food in the photo and estimate nutrition for the visible portion. User goals: ${goals.calories} kcal, ${goals.protein}g protein.
+export async function analyzeMealPhoto(dataUrlBase64, goals, dietPreference = '') {
+  const prompt = `You are a nutrition estimator. Identify the food in the photo and estimate nutrition for the visible portion. User goals: ${goals.calories} kcal, ${goals.protein}g protein. Diet context: ${dietPreference || 'not specified'}.
+
+Use the diet context when it helps identify ingredients or estimate macros. If the meal appears Indian or the diet context suggests Indian food, prefer common Indian ingredients, cooking methods, and portion sizes. Be conservative and realistic with protein estimates, oil/ghee, paneer, dal, rice, roti, and curry portions rather than optimistic gym-style estimates.
 
 Return ONLY valid JSON, no prose, no markdown:
 {
@@ -102,8 +104,10 @@ Return ONLY valid JSON, no prose, no markdown:
   return out;
 }
 
-export async function analyzeMealText(text, goals) {
-  const prompt = `Estimate nutrition for this meal description. User goals: ${goals.calories} kcal, ${goals.protein}g protein.
+export async function analyzeMealText(text, goals, dietPreference = '') {
+  const prompt = `Estimate nutrition for this meal description. User goals: ${goals.calories} kcal, ${goals.protein}g protein. Diet context: ${dietPreference || 'not specified'}.
+
+Use the diet context when it helps identify ingredients or estimate macros. If the meal or diet context suggests Indian food, prefer common Indian ingredients, cooking methods, and portion sizes. Be conservative and realistic with protein estimates, oil/ghee, paneer, dal, rice, roti, and curry portions rather than optimistic gym-style estimates.
 
 Meal: "${text}"
 
