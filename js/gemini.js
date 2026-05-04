@@ -117,9 +117,77 @@ Return ONLY valid JSON:
   "nutrition": { "calories": int, "protein": int, "carbs": int, "fat": int, "fiber": int },
   "confidence": "low" | "medium" | "high"
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.3, maxTokens: 300, json: true });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.3, maxTokens: 800, json: true });
   const json = parseJSON(out);
-  if (!json) throw new Error('BAD_JSON');
+  if (!json) { console.warn('[gemini] text bad json:', out); throw new Error('BAD_JSON'); }
+  return json;
+}
+
+// Both photo AND text together — text disambiguates the photo (portion size, ingredients you know).
+export async function analyzeMealCombined(text, dataUrlBase64, goals, dietPreference = '') {
+  const prompt = `You are a nutrition estimator. Identify the food using BOTH the photo and the user's text note. The text note overrides what you see if they conflict (the user knows portion size and ingredients you can't see). User goals: ${goals.calories} kcal, ${goals.protein}g protein. Diet context: ${dietPreference || 'not specified'}.
+
+User note: "${text || '(none)'}"
+
+Be conservative and realistic with protein, oil/ghee, paneer, dal, rice, roti, curry portions. Use the diet context for ingredient guesses (Indian, Jain, vegetarian etc.).
+
+Return ONLY valid JSON:
+{
+  "description": "short name of the meal (max 8 words)",
+  "nutrition": { "calories": int, "protein": int, "carbs": int, "fat": int, "fiber": int },
+  "confidence": "low" | "medium" | "high"
+}`;
+  const parts = [
+    { text: prompt },
+    { inlineData: { mimeType: 'image/jpeg', data: base64Strip(dataUrlBase64) } },
+  ];
+  const out = await callGemini(parts, { temperature: 0.3, maxTokens: 800, json: true });
+  const json = parseJSON(out);
+  if (!json) { console.warn('[gemini] combined bad json:', out); throw new Error('BAD_JSON'); }
+  return json;
+}
+
+// Smart "add anything" — user dumps text (and optionally a photo), Gemini routes it
+// into one of: meal, workout, hobby, weight, note. Returns the structured payload to save.
+export async function classifyAndExtract(text, dataUrlBase64, profile) {
+  const goals = profile.goals || {};
+  const hobbies = (profile.hobbies || []).map((h) => h.name).join(', ') || 'none';
+  const prompt = `You route a quick log entry into the right category for a fitness app. The user typed a free-form note and may include a photo. Decide what kind of entry it is and extract structured fields.
+
+User note: "${text || '(none — use photo only)'}"
+User's known hobbies: ${hobbies}
+Goals: ${goals.calories} kcal, ${goals.protein}g protein, ${goals.water} ml water, ${goals.hobbyMinutes} min hobby/day.
+Diet context: ${profile.dietPreference || 'not specified'}.
+
+Pick ONE type:
+- "meal" — anything they ate or drank with calories
+- "workout" — gym/strength session with exercises and sets
+- "hobby" — time spent on a hobby or activity (reading, walking, guitar, meditation, etc.)
+- "weight" — bodyweight measurement
+- "water" — water intake in ml
+- "note" — none of the above; just record as a note
+
+Return ONLY valid JSON in this exact shape (omit fields not used):
+{
+  "type": "meal" | "workout" | "hobby" | "weight" | "water" | "note",
+  "confidence": "low" | "medium" | "high",
+  "summary": "short one-line summary (max 10 words) of what they did",
+  "encouragement": "one short encouraging or honest sentence (max 18 words), specific to this entry",
+  "meal": { "description": "...", "type": "breakfast"|"lunch"|"dinner"|"snack", "nutrition": { "calories": int, "protein": int, "carbs": int, "fat": int, "fiber": int } },
+  "workout": { "name": "...", "exercises": [ { "name": "...", "sets": [ { "reps": int, "weight": number } ] } ], "totalVolumeKg": int },
+  "hobby": { "name": "...", "minutes": int, "notes": "..." },
+  "weight": { "kg": number },
+  "water": { "ml": int },
+  "note": { "text": "..." }
+}
+
+Pick the meal "type" by time of day if not stated: before 10am=breakfast, 10am-3pm=lunch, 3pm-6pm=snack, after=dinner. For hobbies, match the user's known hobbies list when possible; otherwise use what they said. For workouts, parse "3x10 squats at 60kg" style. Be lenient and helpful.`;
+
+  const parts = [{ text: prompt }];
+  if (dataUrlBase64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Strip(dataUrlBase64) } });
+  const out = await callGemini(parts, { temperature: 0.3, maxTokens: 1200, json: true });
+  const json = parseJSON(out);
+  if (!json) { console.warn('[gemini] classify bad json:', out); throw new Error('BAD_JSON'); }
   return json;
 }
 
@@ -136,9 +204,9 @@ Return ONLY valid JSON:
   "outputScore": int 0-100,
   "llmNote": "one short sentence (max 18 words), specific to today"
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.5, maxTokens: 250, json: true });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.5, maxTokens: 500, json: true });
   const json = parseJSON(out);
-  if (!json) throw new Error('BAD_JSON');
+  if (!json) { console.warn('[gemini] score bad json:', out); throw new Error('BAD_JSON'); }
   return json;
 }
 
@@ -161,9 +229,9 @@ Also return an updated rolling summary (compress to ~150 tokens). Return ONLY va
     "streak_record": int
   }
 }`;
-  const out = await callGemini([{ text: prompt }], { temperature: 0.6, maxTokens: 600, json: true });
+  const out = await callGemini([{ text: prompt }], { temperature: 0.6, maxTokens: 1024, json: true });
   const json = parseJSON(out);
-  if (!json) throw new Error('BAD_JSON');
+  if (!json) { console.warn('[gemini] insight bad json:', out); throw new Error('BAD_JSON'); }
   return json;
 }
 

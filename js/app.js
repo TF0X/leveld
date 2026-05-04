@@ -1,4 +1,4 @@
-// LifeTracker entry — onboarding, navigation, home dashboard, settings.
+// leveld entry — onboarding, navigation, home dashboard, settings.
 import {
   getDB, getProfile, saveProfile, getAll, putRecord, todayStr, STORES,
 } from './db.js';
@@ -10,6 +10,7 @@ import { renderHobbies } from './hobbies.js';
 import { renderProgress } from './graph.js';
 import { exportAll, importFromFile, shouldShowBackupBanner } from './export.js';
 import { hasKey, scoreDailyActivity, generateWeeklyInsight } from './gemini.js';
+import { openAddAnything } from './addany.js';
 
 const PRESET_HOBBIES = [
   { id: 'reading', name: 'Reading', icon: '📚' },
@@ -237,6 +238,7 @@ async function showApp() {
   $$('#screen-home [data-water]').forEach((b) =>
     b.addEventListener('click', () => addWater(Number(b.dataset.water)))
   );
+  $('#fab-add')?.addEventListener('click', openAddAnything);
 
   // Backup banner button
   $('#banner-export').addEventListener('click', () => exportAll().then(refreshHome));
@@ -447,19 +449,8 @@ async function refreshSettings() {
 
 function wireSettings() {
   bindCalorieSetup(document, 'set');
-  $('#set-save-key').addEventListener('click', async () => {
-    const v = $('#set-key').value.trim();
-    if (v && v !== '••••••••••••') {
-      await saveProfile({ geminiApiKey: v });
-      toast('Key saved', 'success');
-      refreshSettings();
-    } else if (!v) {
-      await saveProfile({ geminiApiKey: '' });
-      toast('Key cleared', 'success');
-      refreshSettings();
-    }
-  });
-  $('#set-save-goals').addEventListener('click', async () => {
+
+  async function saveSettingsProfileAndGoals() {
     const age = Number($('#set-age').value);
     const heightCm = Number($('#set-height').value);
     const weightKg = Number($('#set-weight').value);
@@ -486,7 +477,22 @@ function wireSettings() {
     toast('Saved', 'success');
     refreshSettings();
     refreshHome();
+  }
+
+  $('#set-save-profile').addEventListener('click', saveSettingsProfileAndGoals);
+  $('#set-save-key').addEventListener('click', async () => {
+    const v = $('#set-key').value.trim();
+    if (v && v !== '••••••••••••') {
+      await saveProfile({ geminiApiKey: v });
+      toast('Key saved', 'success');
+      refreshSettings();
+    } else if (!v) {
+      await saveProfile({ geminiApiKey: '' });
+      toast('Key cleared', 'success');
+      refreshSettings();
+    }
   });
+  $('#set-save-goals').addEventListener('click', saveSettingsProfileAndGoals);
   $('#set-add-hobby').addEventListener('click', async () => {
     const name = $('#set-new-hobby').value.trim();
     const icon = $('#set-new-icon').value.trim() || '🎯';

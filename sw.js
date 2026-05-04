@@ -1,5 +1,5 @@
-// LifeTracker service worker — cache-first app shell.
-const VERSION = 'lt-v1.0.6';
+// leveld service worker — cache-first app shell.
+const VERSION = 'leveld-v1.0.0';
 const SHELL = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const SHELL = [
   './js/hobbies.js',
   './js/export.js',
   './js/ui.js',
+  './js/addany.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];

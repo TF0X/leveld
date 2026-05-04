@@ -1,6 +1,6 @@
 {
-  "name": "LifeTracker",
-  "short_name": "LifeTracker",
+  "name": "leveld",
+  "short_name": "leveld",
   "description": "Gamified offline-first life tracker for workouts, meals, hobbies and daily activity.",
   "start_url": "./",
   "scope": "./",

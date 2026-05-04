@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#00ff88" />
-  <meta name="description" content="LifeTracker — gamified offline-first life tracker" />
+  <meta name="description" content="leveld — gamified offline-first life tracker" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -14,16 +14,16 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/animations.css" />
-  <title>LifeTracker</title>
+  <title>leveld</title>
 </head>
 <body>
   <!-- Onboarding -->
   <div id="onboarding" class="screen onboarding hidden">
     <div class="onboarding-inner">
       <div class="brand">
-        <div class="brand-logo">LT</div>
-        <h1>LifeTracker</h1>
-        <p class="tag">Gamified life. Local first.</p>
+        <div class="brand-logo">Lv</div>
+        <h1>leveld</h1>
+        <p class="tag">Level up your life. Local first.</p>
       </div>
 
       <div class="ob-step" data-step="1">
@@ -262,6 +262,7 @@
         <h3 class="sec-title">Profile</h3>
         <label class="lbl">Name <input id="set-name" type="text" /></label>
         <label class="lbl">Diet style / meal context <input id="set-diet" type="text" placeholder="Indian vegetarian, eggitarian, Jain, high-protein, etc." /></label>
+        <button class="btn btn-sm" id="set-save-profile">Save profile</button>
 
         <h3 class="sec-title">Gemini API key</h3>
         <p class="muted small">Stored only in your browser (IndexedDB). Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">aistudio.google.com/apikey</a>.</p>
@@ -329,9 +330,13 @@
         <p class="muted small" id="last-backup-text"></p>
 
         <h3 class="sec-title">About</h3>
-        <p class="muted small">LifeTracker · v1.0 · Offline first · No account · Data stays on this device.</p>
+        <p class="muted small">leveld · v1.0 · Offline first · No account · Data stays on this device.</p>
       </section>
     </main>
+
+    <button id="fab-add" class="fab" aria-label="Add anything">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
 
     <nav class="tab-bar">
       <button data-tab="home" class="active"><span>🏠</span>Home</button>

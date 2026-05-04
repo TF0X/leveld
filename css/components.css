@@ -470,3 +470,177 @@
   background: var(--green);
   animation: confetti-fall 1.6s linear forwards;
 }
+
+/* Floating Action Button — "Add anything" */
+.fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(var(--tab-h) + var(--safe-bot) + 16px);
+  width: 60px;
+  height: 60px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--green) 0%, #00c975 60%, #00a35d 100%);
+  color: #06140c;
+  display: grid;
+  place-items: center;
+  z-index: 25;
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow:
+    0 16px 32px rgba(0,255,136,0.32),
+    0 4px 14px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: transform .12s cubic-bezier(.4,1.6,.4,1), box-shadow .15s, filter .15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.fab:hover { filter: brightness(1.05); }
+.fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 8px 18px rgba(0,255,136,0.28), 0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+.fab svg { display: block; }
+
+/* Add-anything modal & impact overlay */
+.aa-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.aa-head .aa-icon {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(170,68,255,0.18));
+  border: 1px solid rgba(255,255,255,0.12);
+  display: grid; place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.aa-photo-row {
+  display: flex; gap: 8px;
+  margin-top: 10px;
+}
+.aa-photo-row .file-btn { cursor: pointer; }
+#aa-hint, #m-hint { font-size: 12px; margin: 8px 0 0; }
+
+.aa-impact {
+  display: flex; flex-direction: column; align-items: center;
+  max-width: 360px; width: 100%;
+  padding: 8px 12px;
+}
+.aa-scores {
+  display: flex; gap: 18px;
+  margin: 14px 0 6px;
+}
+.aa-score {
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)), rgba(20,24,32,0.7);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 12px 18px;
+  min-width: 110px;
+  text-align: center;
+}
+.aa-s-num {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+.aa-s-cap {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.aa-deltas {
+  display: flex; gap: 6px;
+  flex-wrap: wrap; justify-content: center;
+  margin-top: 10px;
+}
+.d-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.d-act { color: var(--green); background: rgba(0,255,136,0.08); }
+.d-out { color: var(--amber); background: rgba(255,170,0,0.08); }
+
+/* ───── Android & touch polish ───── */
+
+/* Prevent the iOS/Android focus-zoom: any input <16px font triggers zoom-in */
+input, select, textarea, .btn, button {
+  font-size: 16px;
+}
+.btn-xs { font-size: 13px; }
+.btn-sm { font-size: 14px; }
+.tab-bar button { font-size: 11px; }
+.tab-bar button span { font-size: 22px; }
+.ring-num { font-size: 14px; }
+.ring-cap { font-size: 9px; }
+.muted.small, .small { font-size: 13px; }
+
+/* Bigger thumb-friendly tap targets on bottom nav */
+.tab-bar button {
+  min-height: 56px;
+  padding: 6px 4px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Kill double-tap zoom + tap highlight on every interactive surface */
+button, .btn, .quick-btn, .quest-item, .hobby-tile, .hobby-pick, .meal-slot, a, label.btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Make textareas grow but not infinitely on small screens */
+textarea {
+  resize: vertical;
+  min-height: 70px;
+  max-height: 200px;
+}
+
+/* Bottom-sheet modal on small screens */
+@media (max-width: 540px) {
+  .modal-bg {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88dvh;
+    border-radius: 22px 22px 0 0;
+    padding: 18px 18px calc(18px + var(--safe-bot));
+    animation: sheet-up .28s cubic-bezier(.2,.9,.2,1) !important;
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
+  }
+  /* drag-handle hint at top of sheet */
+  .modal::before {
+    content: '';
+    display: block;
+    width: 40px; height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.18);
+    margin: -4px auto 12px;
+  }
+  /* Stacked action buttons feel better on phones */
+  .modal-actions { flex-direction: column-reverse; }
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Active feedback — bigger press for fingers */
+.quick-btn:active, .quest-item:active, .hobby-tile:active, .hobby-pick:active {
+  transform: scale(0.98);
+  transition: transform .08s ease;
+}
+
+/* Hide FAB while a modal/overlay is open (looks cleaner) */
+body:has(.modal-bg) .fab,
+body:has(.overlay) .fab { opacity: 0; pointer-events: none; transform: scale(0.8); transition: all .2s; }

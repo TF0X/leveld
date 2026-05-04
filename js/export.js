@@ -16,7 +16,7 @@ export async function exportAll() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `lifetracker-export-${todayStr()}.json`;
+  a.download = `leveld-export-${todayStr()}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   await saveProfile({ lastBackup: Date.now() });

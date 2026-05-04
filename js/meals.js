@@ -1,6 +1,6 @@
 // Meal logging + Gemini integration.
 import { addRecord, deleteRecord, getByDate, getProfile, todayStr, STORES } from './db.js';
-import { analyzeMealPhoto, analyzeMealText, compressImage, hasKey } from './gemini.js';
+import { analyzeMealPhoto, analyzeMealText, analyzeMealCombined, compressImage, hasKey } from './gemini.js';
 import { $, modal, toast, setRing } from './ui.js';
 import { awardXP } from './gamification.js';
 
@@ -86,22 +86,22 @@ async function openMealModal(type) {
     `
       <h3>Log ${type}</h3>
       <div class="modal-tabs">
-        <button data-tab="text" class="active">Text</button>
-        <button data-tab="photo">Photo</button>
+        <button data-tab="smart" class="active">Smart</button>
         <button data-tab="manual">Manual</button>
       </div>
-      <div class="tab-pane" data-pane="text">
-        <p class="muted small">Describe what you ate. Gemini estimates nutrition.</p>
-        <textarea id="m-text" rows="3" placeholder="e.g. 2 eggs, toast with butter, black coffee"></textarea>
-        ${!haveKey ? '<p class="muted small" style="color:var(--amber)">No Gemini key set — use Manual tab or add a key in Settings.</p>' : ''}
-        <button class="btn btn-primary btn-block" id="m-text-go" ${!haveKey ? 'disabled' : ''}>Estimate &amp; log</button>
-      </div>
-      <div class="tab-pane hidden" data-pane="photo">
-        <p class="muted small">Snap or pick a photo. Gemini analyzes it.</p>
-        <input type="file" id="m-file" accept="image/*" capture="environment" />
+      <div class="tab-pane" data-pane="smart">
+        <p class="muted small">Describe what you ate, attach a photo, or both. Photo + note works best — the note tells Gemini what it can't see (portion size, hidden ingredients).</p>
+        <textarea id="m-text" rows="3" placeholder="e.g. 2 rotis, dal, half plate sabzi, 1 tsp ghee"></textarea>
+        <div class="aa-photo-row">
+          <label class="btn btn-ghost btn-sm file-btn" style="flex:1;">
+            📷 Add photo (optional)
+            <input id="m-file" type="file" accept="image/*" capture="environment" hidden />
+          </label>
+          <button class="btn btn-ghost btn-sm hidden" id="m-photo-clear">Clear</button>
+        </div>
         <img class="preview-img hidden" id="m-preview" />
-        ${!haveKey ? '<p class="muted small" style="color:var(--amber)">No Gemini key set — add one in Settings.</p>' : ''}
-        <button class="btn btn-primary btn-block hidden" id="m-photo-go">Analyze &amp; log</button>
+        ${!haveKey ? '<p class="muted small" style="color:var(--amber)">No Gemini key set — use Manual tab or add a key in Settings.</p>' : ''}
+        <button class="btn btn-primary btn-block" id="m-smart-go" ${!haveKey ? 'disabled' : ''}>Analyze &amp; log</button>
       </div>
       <div class="tab-pane hidden" data-pane="manual">
         <div class="form-row"><label>Description</label><input type="text" id="m-desc" placeholder="Meal name" /></div>
@@ -116,7 +116,6 @@ async function openMealModal(type) {
       <div class="modal-actions"><button class="btn btn-ghost" id="m-cancel">Cancel</button></div>
     `,
     (root, close) => {
-      // Tabs
       const tabs = root.querySelectorAll('.modal-tabs button');
       const panes = root.querySelectorAll('.tab-pane');
       tabs.forEach((t) =>
@@ -128,46 +127,45 @@ async function openMealModal(type) {
       );
       root.querySelector('#m-cancel').addEventListener('click', () => close(null));
 
-      // Text
-      root.querySelector('#m-text-go').addEventListener('click', async () => {
-        const t = root.querySelector('#m-text').value.trim();
-        if (!t) return toast('Type something first', 'error');
-        const btn = root.querySelector('#m-text-go');
-        btn.disabled = true; btn.textContent = 'Thinking…';
-        try {
-          const profile = await getProfile();
-          const r = await analyzeMealText(t, profile.goals, profile.dietPreference);
-          await saveMeal(type, r, 'text');
-          close('ok');
-        } catch (e) {
-          toast(geminiErrToMsg(e), 'error');
-          btn.disabled = false; btn.textContent = 'Estimate & log';
-        }
-      });
-
-      // Photo
+      // Smart (text + optional photo)
       let pendingDataUrl = null;
+      const previewEl = root.querySelector('#m-preview');
+      const clearBtn = root.querySelector('#m-photo-clear');
       root.querySelector('#m-file').addEventListener('change', async (e) => {
         const f = e.target.files?.[0];
         if (!f) return;
         try {
           pendingDataUrl = await compressImage(f);
-          const img = root.querySelector('#m-preview');
-          img.src = pendingDataUrl;
-          img.classList.remove('hidden');
-          root.querySelector('#m-photo-go').classList.remove('hidden');
-        } catch (err) {
+          previewEl.src = pendingDataUrl;
+          previewEl.classList.remove('hidden');
+          clearBtn.classList.remove('hidden');
+        } catch {
           toast('Could not read image', 'error');
         }
       });
-      root.querySelector('#m-photo-go').addEventListener('click', async () => {
-        if (!pendingDataUrl) return;
-        const btn = root.querySelector('#m-photo-go');
+      clearBtn.addEventListener('click', () => {
+        pendingDataUrl = null;
+        previewEl.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+        root.querySelector('#m-file').value = '';
+      });
+
+      root.querySelector('#m-smart-go').addEventListener('click', async () => {
+        const t = root.querySelector('#m-text').value.trim();
+        if (!t && !pendingDataUrl) return toast('Type something or add a photo', 'error');
+        const btn = root.querySelector('#m-smart-go');
         btn.disabled = true; btn.textContent = 'Analyzing…';
         try {
           const profile = await getProfile();
-          const r = await analyzeMealPhoto(pendingDataUrl, profile.goals, profile.dietPreference);
-          await saveMeal(type, { ...r, imageBase64: pendingDataUrl }, 'photo');
+          let r;
+          if (pendingDataUrl && t) {
+            r = await analyzeMealCombined(t, pendingDataUrl, profile.goals, profile.dietPreference);
+          } else if (pendingDataUrl) {
+            r = await analyzeMealPhoto(pendingDataUrl, profile.goals, profile.dietPreference);
+          } else {
+            r = await analyzeMealText(t, profile.goals, profile.dietPreference);
+          }
+          await saveMeal(type, { ...r, imageBase64: pendingDataUrl }, pendingDataUrl ? (t ? 'combined' : 'photo') : 'text');
           close('ok');
         } catch (e) {
           toast(geminiErrToMsg(e), 'error');
