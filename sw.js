@@ -1,5 +1,5 @@
 // leveld service worker — cache-first app shell.
-const VERSION = 'leveld-v1.0.0';
+const VERSION = 'leveld-v1.1.0';
 const SHELL = [
   './',
   './index.html',
@@ -18,6 +18,9 @@ const SHELL = [
   './js/export.js',
   './js/ui.js',
   './js/addany.js',
+  './js/challenges.js',
+  './js/notifications.js',
+  './js/skills.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
@@ -34,6 +37,17 @@ self.addEventListener('activate', (e) => {
       Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) {
+      if (c.url.includes(self.registration.scope) && 'focus' in c) return c.focus();
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(self.registration.scope);
+  })());
 });
 
 self.addEventListener('fetch', (e) => {

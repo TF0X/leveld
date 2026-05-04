@@ -11,6 +11,8 @@ import { renderProgress } from './graph.js';
 import { exportAll, importFromFile, shouldShowBackupBanner } from './export.js';
 import { hasKey, scoreDailyActivity, generateWeeklyInsight } from './gemini.js';
 import { openAddAnything } from './addany.js';
+import { getDailyChallenge, skipChallenge, completeChallenge, challengeIcon } from './challenges.js';
+import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder } from './notifications.js';
 
 const PRESET_HOBBIES = [
   { id: 'reading', name: 'Reading', icon: '📚' },
@@ -259,6 +261,8 @@ async function showApp() {
 
   await checkStreakOnOpen();
   await refreshHome();
+  // Re-arm scheduled triggers (in case browser cleared them)
+  try { await scheduleDailyReminder(); await checkMissedReminder(); } catch {}
 
   document.addEventListener('lt:refresh-home', refreshHome);
 }
@@ -296,6 +300,9 @@ async function refreshHome() {
   // Backup banner
   const banner = $('#backup-banner');
   banner.classList.toggle('hidden', !(await shouldShowBackupBanner()));
+
+  // Daily challenge
+  renderChallengeCard().catch((e) => console.warn('[challenge]', e));
 
   // Rings — calories, protein, water
   const totals = await getDailyTotals();
@@ -445,10 +452,12 @@ async function refreshSettings() {
   } else {
     $('#last-backup-text').textContent = 'Never exported.';
   }
+  refreshNotifSettings();
 }
 
 function wireSettings() {
   bindCalorieSetup(document, 'set');
+  wireNotifSettings();
 
   async function saveSettingsProfileAndGoals() {
     const age = Number($('#set-age').value);
@@ -558,6 +567,98 @@ async function refreshWeeklyInsight() {
 
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── Daily challenge card
+async function renderChallengeCard() {
+  const root = $('#challenge-card');
+  if (!root) return;
+  const ch = await getDailyChallenge();
+  if (ch.done) {
+    root.classList.add('done');
+    root.innerHTML = `
+      <div class="ch-row">
+        <div class="ch-icon">${challengeIcon(ch.type)}</div>
+        <div class="ch-body">
+          <div class="ch-text">${escapeHtml(ch.text)}</div>
+          <div class="ch-meta muted small">✓ Completed · +${ch.xp || 50} XP</div>
+        </div>
+      </div>`;
+    return;
+  }
+  root.classList.remove('done');
+  root.innerHTML = `
+    <div class="ch-row">
+      <div class="ch-icon">${challengeIcon(ch.type)}</div>
+      <div class="ch-body">
+        <div class="ch-text">${escapeHtml(ch.text)}</div>
+        <div class="ch-meta muted small">${ch.type} · +${ch.xp || 50} XP · skips left: ${3 - (ch.skipped || 0)}</div>
+      </div>
+    </div>
+    <div class="ch-actions">
+      <button class="btn btn-ghost btn-sm" id="ch-skip" ${(ch.skipped || 0) >= 3 ? 'disabled' : ''}>Skip</button>
+      <button class="btn btn-primary btn-sm" id="ch-done">Done!</button>
+    </div>`;
+  root.querySelector('#ch-skip')?.addEventListener('click', async () => {
+    await skipChallenge();
+    renderChallengeCard();
+  });
+  root.querySelector('#ch-done')?.addEventListener('click', async () => {
+    await completeChallenge();
+    renderChallengeCard();
+    refreshHome();
+  });
+}
+
+// ── Notifications wiring (used inside refreshSettings + wireSettings)
+async function refreshNotifSettings() {
+  const p = await getProfile();
+  const status = $('#notif-status');
+  const btn = $('#set-notif-toggle');
+  const hourInp = $('#set-notif-hour');
+  if (!btn) return;
+  if (!NOTIF_SUPPORTED) {
+    btn.disabled = true;
+    btn.textContent = 'Not supported';
+    if (status) status.textContent = '';
+    return;
+  }
+  const perm = await getPermission();
+  hourInp.value = p.notifyHour || 19;
+  if (perm === 'granted' && p.notificationsEnabled) {
+    btn.textContent = 'Disable reminders';
+    btn.classList.add('btn-danger');
+    if (status) status.textContent = 'TimestampTrigger' in window ? 'scheduled' : 'fires when you open the app';
+  } else if (perm === 'denied') {
+    btn.disabled = true;
+    btn.textContent = 'Blocked in browser';
+    if (status) status.textContent = 'enable from site settings';
+  } else {
+    btn.textContent = 'Enable reminders';
+    btn.classList.remove('btn-danger');
+    if (status) status.textContent = '';
+  }
+}
+
+function wireNotifSettings() {
+  const btn = $('#set-notif-toggle');
+  const hourInp = $('#set-notif-hour');
+  if (!btn || !hourInp) return;
+  btn.addEventListener('click', async () => {
+    const p = await getProfile();
+    if (p.notificationsEnabled) {
+      await disableNotifications();
+    } else {
+      await requestPermission();
+    }
+    refreshNotifSettings();
+  });
+  hourInp.addEventListener('change', async () => {
+    const h = Math.max(0, Math.min(23, Number(hourInp.value) || 19));
+    hourInp.value = h;
+    await setReminderHour(h);
+    refreshNotifSettings();
+  });
 }
 
 boot();
