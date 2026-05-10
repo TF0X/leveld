@@ -21,6 +21,13 @@ export async function requestPermission() {
     toast('Notifications not supported in this browser', 'error');
     return 'unsupported';
   }
+  // Already granted (e.g. via Android site settings) — skip the prompt
+  if (Notification.permission === 'granted') {
+    await saveProfile({ notificationsEnabled: true, notifyHour: 19 });
+    await scheduleDailyReminder();
+    toast('Notifications enabled', 'success');
+    return 'granted';
+  }
   const r = await Notification.requestPermission();
   if (r === 'granted') {
     toast('Notifications enabled', 'success');
@@ -94,6 +101,68 @@ export async function scheduleDailyReminder() {
   } catch (e) {
     console.warn('[notify] schedule fail', e);
   }
+}
+
+// Schedule water drink reminders for today at chosen interval (8am–9pm).
+export async function scheduleWaterReminders() {
+  if (!NOTIF_SUPPORTED || Notification.permission !== 'granted') return;
+  const p = await getProfile();
+  if (!p.waterReminderEnabled) return;
+  const interval = p.waterReminderInterval || 2;
+  if (!('TimestampTrigger' in window)) return; // fallback handled by startWaterInterval
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+    // Clear old water reminders
+    const existing = await reg.getNotifications({ includeTriggered: true });
+    for (const n of existing) if (n.tag?.startsWith('leveld-water')) n.close();
+    // Schedule from next slot until 9pm
+    const end = new Date(); end.setHours(21, 0, 0, 0);
+    const when = new Date(); when.setMinutes(0, 0, 0); when.setHours(when.getHours() + interval);
+    while (when <= end && when.getTime() > Date.now()) {
+      await reg.showNotification('💧 Time to drink water', {
+        body: `Stay on track — goal: ${p.goals.water}ml today. Open the app to log.`,
+        icon: 'icons/icon-192.png',
+        badge: 'icons/icon-192.png',
+        tag: `leveld-water-${when.getHours()}`,
+        // eslint-disable-next-line no-undef
+        showTrigger: new TimestampTrigger(when.getTime()),
+        renotify: true,
+        data: { type: 'water-reminder' },
+      });
+      when.setHours(when.getHours() + interval);
+    }
+  } catch (e) {
+    console.warn('[water-notif] schedule fail', e);
+  }
+}
+
+// setInterval fallback — fires while page is open, skips if goal already hit.
+export function startWaterInterval(getProfileFn) {
+  let intervalId;
+  function msUntilNext(intervalHours) {
+    const now = new Date();
+    const rem = intervalHours * 3600000 - (now.getMinutes() * 60000 + now.getSeconds() * 1000 + now.getMilliseconds());
+    return rem > 0 ? rem : intervalHours * 3600000;
+  }
+  async function fire() {
+    const p = typeof getProfileFn === 'function' ? await getProfileFn() : await getProfile();
+    if (!p.waterReminderEnabled || Notification.permission !== 'granted') return;
+    const hour = new Date().getHours();
+    if (hour < 8 || hour >= 21) return; // outside waking window
+    const water = p.waterDate === todayStr() ? (p.waterToday || 0) : 0;
+    if (water >= p.goals.water) return; // goal already hit
+    const pct = Math.round((water / Math.max(1, p.goals.water)) * 100);
+    notify('💧 Drink water', `${water}ml / ${p.goals.water}ml (${pct}%) — keep going.`, { tag: 'leveld-water-interval', renotify: true });
+  }
+  const interval = 2; // default; accurate schedule is done via Triggers API
+  const timeoutId = setTimeout(async () => {
+    await fire();
+    const p = await getProfile();
+    const h = (p.waterReminderInterval || 2) * 3600000;
+    intervalId = setInterval(fire, h);
+  }, msUntilNext(interval));
+  return () => { clearTimeout(timeoutId); clearInterval(intervalId); };
 }
 
 // Called on every app boot — fires "missed reminder" notification if applicable.

@@ -12,7 +12,7 @@ import { exportAll, importFromFile, shouldShowBackupBanner } from './export.js';
 import { hasKey, scoreDailyActivity, generateWeeklyInsight } from './gemini.js';
 import { openAddAnything } from './addany.js';
 import { getDailyChallenge, skipChallenge, completeChallenge, challengeIcon } from './challenges.js';
-import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder } from './notifications.js';
+import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder, scheduleWaterReminders, startWaterInterval } from './notifications.js';
 import { applyMidnightPenalty, scheduleSavageNotifs, startSavageInterval, getShredChallenge } from './savage.js';
 
 const PRESET_HOBBIES = [
@@ -264,6 +264,7 @@ async function showApp() {
   await refreshHome();
   // Re-arm scheduled triggers (in case browser cleared them)
   try { await scheduleDailyReminder(); await checkMissedReminder(); } catch {}
+  try { await scheduleWaterReminders(); startWaterInterval(getProfile); } catch {}
   // Shred mode: apply penalty for yesterday + arm hourly notifications
   try {
     await applyMidnightPenalty();
@@ -533,12 +534,14 @@ async function refreshSettings() {
     $('#last-backup-text').textContent = 'Never exported.';
   }
   refreshNotifSettings();
+  refreshWaterNotifSettings();
   refreshShredSettings();
 }
 
 function wireSettings() {
   bindCalorieSetup(document, 'set');
   wireNotifSettings();
+  wireWaterNotifSettings();
   wireShredSettings();
 
   async function saveSettingsProfileAndGoals() {
@@ -789,6 +792,52 @@ function wireNotifSettings() {
     await setReminderHour(h);
     refreshNotifSettings();
   });
+}
+
+async function refreshWaterNotifSettings() {
+  const p = await getProfile();
+  const btn = $('#set-water-toggle');
+  const intervalRow = $('#water-interval-row');
+  const intervalSel = $('#set-water-interval');
+  const sub = $('#water-reminder-sub');
+  if (!btn) return;
+  const on = !!p.waterReminderEnabled;
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('on', on);
+  if (intervalRow) intervalRow.classList.toggle('hidden', !on);
+  if (intervalSel) intervalSel.value = String(p.waterReminderInterval || 2);
+  if (sub) sub.textContent = on ? `Every ${p.waterReminderInterval || 2}h · 8am–9pm` : 'Nudges to drink — 8am to 9pm';
+}
+
+function wireWaterNotifSettings() {
+  const btn = $('#set-water-toggle');
+  const intervalSel = $('#set-water-interval');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const perm = await getPermission();
+    const p = await getProfile();
+    if (perm !== 'granted' || !p.notificationsEnabled) {
+      toast('Enable reminders first', 'error');
+      return;
+    }
+    const next = !p.waterReminderEnabled;
+    await saveProfile({ waterReminderEnabled: next });
+    if (next) {
+      await scheduleWaterReminders();
+      toast('💧 Water reminders on', 'success');
+    } else {
+      toast('Water reminders off');
+    }
+    refreshWaterNotifSettings();
+  });
+  if (intervalSel) {
+    intervalSel.addEventListener('change', async () => {
+      const v = Number(intervalSel.value) || 2;
+      await saveProfile({ waterReminderInterval: v });
+      await scheduleWaterReminders();
+      refreshWaterNotifSettings();
+    });
+  }
 }
 
 async function refreshShredSettings() {

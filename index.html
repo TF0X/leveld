@@ -378,6 +378,24 @@
           <span class="muted small" id="notif-status"></span>
         </div>
 
+        <div class="shred-toggle-row" id="water-reminder-row" style="margin-top:10px;">
+          <div class="shred-toggle-info">
+            <span>💧 Water reminders</span>
+            <span class="muted small" id="water-reminder-sub">Nudges to drink — 8am to 9pm</span>
+          </div>
+          <button class="toggle-btn" id="set-water-toggle" aria-pressed="false"></button>
+        </div>
+        <div id="water-interval-row" class="hidden" style="padding:2px 4px 10px;">
+          <label class="muted small" style="display:flex;align-items:center;gap:8px;">
+            Remind every
+            <select id="set-water-interval" style="background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--text);padding:4px 10px;border-radius:8px;font-size:13px;">
+              <option value="1">1 hour</option>
+              <option value="2" selected>2 hours</option>
+              <option value="3">3 hours</option>
+            </select>
+          </label>
+        </div>
+
         <h3 class="sec-title">Shred Mode 🔥</h3>
         <p class="muted small">Cuts focus, XP penalties for missed days/quests, hourly sarcastic push notifications, and brutal random challenges. Not for the weak.</p>
         <div class="shred-toggle-row">

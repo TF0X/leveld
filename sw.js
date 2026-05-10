@@ -1,5 +1,5 @@
 // leveld service worker — cache-first app shell.
-const VERSION = 'leveld-v1.2.0';
+const VERSION = 'leveld-v1.2.1';
 const SHELL = [
   './',
   './index.html',
