@@ -1,5 +1,5 @@
 // leveld service worker — cache-first app shell.
-const VERSION = 'leveld-v1.1.2';
+const VERSION = 'leveld-v1.2.0';
 const SHELL = [
   './',
   './index.html',
@@ -21,6 +21,8 @@ const SHELL = [
   './js/challenges.js',
   './js/notifications.js',
   './js/skills.js',
+  './js/savage.js',
+  './js/fooddb.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
@@ -48,6 +50,36 @@ self.addEventListener('notificationclick', (e) => {
     }
     if (self.clients.openWindow) return self.clients.openWindow(self.registration.scope);
   })());
+});
+
+// Periodic background sync — fires hourly savage notification if savage mode on.
+// Requires PWA install + Chrome's periodic background sync permission.
+self.addEventListener('periodicsync', (e) => {
+  if (e.tag === 'leveld-savage') {
+    e.waitUntil(self.registration.showNotification('leveld', {
+      body: 'Still slacking? Open the app and log something.',
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      tag: 'leveld-savage-bg',
+      renotify: true,
+      data: { type: 'savage' },
+    }));
+  }
+});
+
+// Message from app page — show a notification immediately from the SW context.
+self.addEventListener('message', (e) => {
+  if (e.data?.type === 'savage-notif') {
+    const { title, body } = e.data;
+    self.registration.showNotification(title || 'leveld', {
+      body: body || 'Log something. Now.',
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      tag: 'leveld-savage-msg',
+      renotify: true,
+      data: { type: 'savage' },
+    });
+  }
 });
 
 self.addEventListener('fetch', (e) => {

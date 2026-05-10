@@ -3,6 +3,7 @@ import { addRecord, deleteRecord, getByDate, getProfile, todayStr, STORES } from
 import { analyzeMealPhoto, analyzeMealText, analyzeMealCombined, compressImage, hasKey } from './gemini.js';
 import { $, modal, toast, setRing } from './ui.js';
 import { awardXP } from './gamification.js';
+import { FOOD_DB } from './fooddb.js';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 
@@ -11,16 +12,19 @@ export async function renderMeals() {
   const [meals, profile] = await Promise.all([getByDate(STORES.meals, today), getProfile()]);
   const totals = sumNutrition(meals);
   $('#mr-cal').textContent = totals.calories;
-  $('#mr-pro').textContent = `${totals.protein}g`;
-  $('#mr-carbs').textContent = `${totals.carbs}g`;
-  $('#mr-fat').textContent = `${totals.fat}g`;
-  // Progress bar fills for cal and protein (the two goal-tracked macros)
+  $('#mr-pro').textContent = totals.protein;
+  $('#mr-carbs').textContent = totals.carbs;
+  $('#mr-fat').textContent = totals.fat;
   const calPct = Math.min(100, Math.round((totals.calories / Math.max(1, profile.goals.calories)) * 100));
   const proPct = Math.min(100, Math.round((totals.protein / Math.max(1, profile.goals.protein)) * 100));
-  const calBar = document.querySelector('[data-color="#4488ff"] .mr-bar-fill');
-  const proBar = document.querySelector('[data-color="#00ff88"] .mr-bar-fill');
-  if (calBar) calBar.style.width = `${calPct}%`;
-  if (proBar) proBar.style.width = `${proPct}%`;
+  const calFill = $('#ms-cal-fill');
+  const proFill = $('#ms-pro-fill');
+  if (calFill) calFill.style.width = `${calPct}%`;
+  if (proFill) proFill.style.width = `${proPct}%`;
+  const calPctEl = $('#ms-cal-pct');
+  const proPctEl = $('#ms-pro-pct');
+  if (calPctEl) calPctEl.textContent = `${calPct}%`;
+  if (proPctEl) proPctEl.textContent = `${proPct}%`;
 
   const slots = $('#meal-slots');
   slots.innerHTML = '';
@@ -88,15 +92,18 @@ export async function getDailyTotals() {
 
 async function openMealModal(type) {
   const haveKey = await hasKey();
+  const noKeyWarn = `<p class="muted small" style="color:var(--amber);margin-top:8px;">No Gemini key — add one in Settings.</p>`;
   modal(
     `
       <h3>Log ${type}</h3>
       <div class="modal-tabs">
         <button data-tab="smart" class="active">Smart</button>
         <button data-tab="manual">Manual</button>
+        <button data-tab="db">Food DB</button>
       </div>
+
       <div class="tab-pane" data-pane="smart">
-        <p class="muted small">Describe what you ate, attach a photo, or both. Photo + note works best — the note tells Gemini what it can't see (portion size, hidden ingredients).</p>
+        <p class="muted small">Describe what you ate, attach a photo, or both.</p>
         <textarea id="m-text" rows="3" placeholder="e.g. 2 rotis, dal, half plate sabzi, 1 tsp ghee"></textarea>
         <div class="aa-photo-row">
           <label class="btn btn-ghost btn-sm file-btn" style="flex:1;">
@@ -106,9 +113,10 @@ async function openMealModal(type) {
           <button class="btn btn-ghost btn-sm hidden" id="m-photo-clear">Clear</button>
         </div>
         <img class="preview-img hidden" id="m-preview" />
-        ${!haveKey ? '<p class="muted small" style="color:var(--amber)">No Gemini key set — use Manual tab or add a key in Settings.</p>' : ''}
-        <button class="btn btn-primary btn-block" id="m-smart-go" ${!haveKey ? 'disabled' : ''}>Analyze &amp; log</button>
+        ${!haveKey ? noKeyWarn : ''}
+        <button class="btn btn-primary btn-block" id="m-smart-go" ${!haveKey ? 'disabled' : ''} style="margin-top:10px;">Analyze &amp; log</button>
       </div>
+
       <div class="tab-pane hidden" data-pane="manual">
         <div class="form-row"><label>Description</label><input type="text" id="m-desc" placeholder="Meal name" /></div>
         <div class="goal-grid">
@@ -119,9 +127,50 @@ async function openMealModal(type) {
         </div>
         <button class="btn btn-primary btn-block" id="m-manual-go" style="margin-top:10px;">Log meal</button>
       </div>
+
+      <div class="tab-pane hidden" data-pane="db">
+        <p class="muted small">Search Indian & common foods. AI estimates the macros from the exact food name.</p>
+        <input type="search" class="fd-search" id="fd-search" placeholder="🔍 roti, dal, rice, paneer…" autocomplete="off" />
+        <div class="fd-list" id="fd-list"></div>
+        <div class="fd-bottom hidden" id="fd-bottom">
+          <div class="fd-sel-row">
+            <span id="fd-sel-emoji"></span>
+            <div class="fd-sel-info">
+              <div class="fd-sel-name" id="fd-sel-name"></div>
+              <div class="fd-sel-serving muted small" id="fd-sel-serving"></div>
+            </div>
+          </div>
+          <div class="fd-qty-row">
+            <button class="btn btn-ghost btn-sm fd-qty-btn" id="fd-qty-minus">−</button>
+            <span class="fd-qty-num" id="fd-qty-num">1</span>
+            <button class="btn btn-ghost btn-sm fd-qty-btn" id="fd-qty-plus">+</button>
+            <span class="muted small fd-qty-label" id="fd-qty-label">serving</span>
+          </div>
+          ${!haveKey ? noKeyWarn : ''}
+          <button class="btn btn-primary btn-block" id="fd-analyze" ${!haveKey ? 'disabled' : ''}>Get nutrition →</button>
+        </div>
+        <div class="fd-review hidden" id="fd-review">
+          <div class="fd-rev-head">
+            <span class="fd-rev-name" id="fd-rev-name"></span>
+            <span class="muted small" id="fd-rev-conf"></span>
+          </div>
+          <div class="goal-grid" style="margin-top:8px;">
+            <label>Calories <input type="number" id="fd-rcal" /></label>
+            <label>Protein (g) <input type="number" id="fd-rpro" /></label>
+            <label>Carbs (g) <input type="number" id="fd-rcarb" /></label>
+            <label>Fat (g) <input type="number" id="fd-rfat" /></label>
+          </div>
+          <div class="fd-rev-actions">
+            <button class="btn btn-ghost btn-sm" id="fd-re-search">← Back</button>
+            <button class="btn btn-primary" id="fd-log">Log meal</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-actions"><button class="btn btn-ghost" id="m-cancel">Cancel</button></div>
     `,
     (root, close) => {
+      // Tab switching
       const tabs = root.querySelectorAll('.modal-tabs button');
       const panes = root.querySelectorAll('.tab-pane');
       tabs.forEach((t) =>
@@ -133,7 +182,7 @@ async function openMealModal(type) {
       );
       root.querySelector('#m-cancel').addEventListener('click', () => close(null));
 
-      // Smart (text + optional photo)
+      // ── Smart tab
       let pendingDataUrl = null;
       const previewEl = root.querySelector('#m-preview');
       const clearBtn = root.querySelector('#m-photo-clear');
@@ -145,9 +194,7 @@ async function openMealModal(type) {
           previewEl.src = pendingDataUrl;
           previewEl.classList.remove('hidden');
           clearBtn.classList.remove('hidden');
-        } catch {
-          toast('Could not read image', 'error');
-        }
+        } catch { toast('Could not read image', 'error'); }
       });
       clearBtn.addEventListener('click', () => {
         pendingDataUrl = null;
@@ -155,7 +202,6 @@ async function openMealModal(type) {
         clearBtn.classList.add('hidden');
         root.querySelector('#m-file').value = '';
       });
-
       root.querySelector('#m-smart-go').addEventListener('click', async () => {
         const t = root.querySelector('#m-text').value.trim();
         if (!t && !pendingDataUrl) return toast('Type something or add a photo', 'error');
@@ -164,13 +210,9 @@ async function openMealModal(type) {
         try {
           const profile = await getProfile();
           let r;
-          if (pendingDataUrl && t) {
-            r = await analyzeMealCombined(t, pendingDataUrl, profile.goals, profile.dietPreference);
-          } else if (pendingDataUrl) {
-            r = await analyzeMealPhoto(pendingDataUrl, profile.goals, profile.dietPreference);
-          } else {
-            r = await analyzeMealText(t, profile.goals, profile.dietPreference);
-          }
+          if (pendingDataUrl && t) r = await analyzeMealCombined(t, pendingDataUrl, profile.goals, profile.dietPreference);
+          else if (pendingDataUrl) r = await analyzeMealPhoto(pendingDataUrl, profile.goals, profile.dietPreference);
+          else r = await analyzeMealText(t, profile.goals, profile.dietPreference);
           await saveMeal(type, { ...r, imageBase64: pendingDataUrl }, pendingDataUrl ? (t ? 'combined' : 'photo') : 'text');
           close('ok');
         } catch (e) {
@@ -179,7 +221,7 @@ async function openMealModal(type) {
         }
       });
 
-      // Manual
+      // ── Manual tab
       root.querySelector('#m-manual-go').addEventListener('click', async () => {
         const desc = root.querySelector('#m-desc').value.trim() || `${type} meal`;
         const nutrition = {
@@ -192,6 +234,115 @@ async function openMealModal(type) {
         await saveMeal(type, { description: desc, nutrition }, 'manual');
         close('ok');
       });
+
+      // ── Food DB tab
+      let selectedFood = null;
+      let qty = 1;
+
+      function renderFoodList(query = '') {
+        const listEl = root.querySelector('#fd-list');
+        const q = query.toLowerCase().trim();
+        const filtered = q
+          ? FOOD_DB.filter((f) => f.name.toLowerCase().includes(q) || f.cat.includes(q) || f.desc.toLowerCase().includes(q))
+          : FOOD_DB;
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<div class="muted small fd-empty">No foods found</div>';
+          return;
+        }
+        listEl.innerHTML = filtered.map((f, i) => `
+          <div class="fd-item" data-idx="${FOOD_DB.indexOf(f)}">
+            <span class="fd-item-emoji">${f.emoji}</span>
+            <div class="fd-item-info">
+              <div class="fd-item-name">${escapeHtml(f.name)}</div>
+              <div class="fd-item-serving muted small">${escapeHtml(f.serving)}</div>
+            </div>
+            <span class="fd-item-cat muted small">${f.cat}</span>
+          </div>`).join('');
+        listEl.querySelectorAll('.fd-item').forEach((el) => {
+          el.addEventListener('click', () => {
+            selectedFood = FOOD_DB[Number(el.dataset.idx)];
+            qty = 1;
+            showFoodBottom();
+          });
+        });
+      }
+
+      function showFoodBottom() {
+        root.querySelector('#fd-bottom').classList.remove('hidden');
+        root.querySelector('#fd-review').classList.add('hidden');
+        root.querySelector('#fd-sel-emoji').textContent = selectedFood.emoji;
+        root.querySelector('#fd-sel-name').textContent = selectedFood.name;
+        root.querySelector('#fd-sel-serving').textContent = selectedFood.serving;
+        root.querySelector('#fd-qty-num').textContent = qty;
+        root.querySelector('#fd-qty-label').textContent = qty === 1 ? 'serving' : 'servings';
+      }
+
+      root.querySelector('#fd-search').addEventListener('input', (e) => {
+        renderFoodList(e.target.value);
+        root.querySelector('#fd-bottom').classList.add('hidden');
+        root.querySelector('#fd-review').classList.add('hidden');
+        selectedFood = null;
+      });
+
+      root.querySelector('#fd-qty-minus').addEventListener('click', () => {
+        if (qty <= 0.5) return;
+        qty = qty <= 1 ? 0.5 : qty - 1;
+        root.querySelector('#fd-qty-num').textContent = qty;
+        root.querySelector('#fd-qty-label').textContent = qty === 1 ? 'serving' : 'servings';
+      });
+      root.querySelector('#fd-qty-plus').addEventListener('click', () => {
+        qty = qty < 1 ? 1 : qty + 1;
+        root.querySelector('#fd-qty-num').textContent = qty;
+        root.querySelector('#fd-qty-label').textContent = qty === 1 ? 'serving' : 'servings';
+      });
+
+      root.querySelector('#fd-analyze').addEventListener('click', async () => {
+        if (!selectedFood) return toast('Pick a food first', 'error');
+        const btn = root.querySelector('#fd-analyze');
+        btn.disabled = true; btn.textContent = 'Estimating…';
+        try {
+          const profile = await getProfile();
+          const qtyStr = qty === 0.5 ? 'half' : qty === 1 ? 'one' : `${qty}`;
+          const desc = `${qtyStr} serving${qty > 1 ? 's' : ''} of ${selectedFood.name} (${selectedFood.desc}), serving size: ${selectedFood.serving}`;
+          const r = await analyzeMealText(desc, profile.goals, profile.dietPreference || 'Indian');
+          // Show review form
+          root.querySelector('#fd-bottom').classList.add('hidden');
+          root.querySelector('#fd-review').classList.remove('hidden');
+          root.querySelector('#fd-rev-name').textContent = r.description || selectedFood.name;
+          root.querySelector('#fd-rev-conf').textContent = `confidence: ${r.confidence || '—'}`;
+          root.querySelector('#fd-rcal').value = r.nutrition?.calories || '';
+          root.querySelector('#fd-rpro').value = r.nutrition?.protein || '';
+          root.querySelector('#fd-rcarb').value = r.nutrition?.carbs || '';
+          root.querySelector('#fd-rfat').value = r.nutrition?.fat || '';
+        } catch (e) {
+          toast(geminiErrToMsg(e), 'error');
+          btn.disabled = false; btn.textContent = 'Get nutrition →';
+        }
+      });
+
+      root.querySelector('#fd-re-search').addEventListener('click', () => {
+        root.querySelector('#fd-review').classList.add('hidden');
+        root.querySelector('#fd-bottom').classList.remove('hidden');
+        const analyzeBtn = root.querySelector('#fd-analyze');
+        analyzeBtn.disabled = !haveKey;
+        analyzeBtn.textContent = 'Get nutrition →';
+      });
+
+      root.querySelector('#fd-log').addEventListener('click', async () => {
+        const nutrition = {
+          calories: Number(root.querySelector('#fd-rcal').value) || 0,
+          protein: Number(root.querySelector('#fd-rpro').value) || 0,
+          carbs: Number(root.querySelector('#fd-rcarb').value) || 0,
+          fat: Number(root.querySelector('#fd-rfat').value) || 0,
+          fiber: 0,
+        };
+        const desc = root.querySelector('#fd-rev-name').textContent || selectedFood?.name || `${type} meal`;
+        await saveMeal(type, { description: desc, nutrition }, 'db');
+        close('ok');
+      });
+
+      // Init food list
+      renderFoodList();
     }
   ).then(async (r) => {
     if (r === 'ok') {

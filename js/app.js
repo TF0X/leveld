@@ -13,6 +13,7 @@ import { hasKey, scoreDailyActivity, generateWeeklyInsight } from './gemini.js';
 import { openAddAnything } from './addany.js';
 import { getDailyChallenge, skipChallenge, completeChallenge, challengeIcon } from './challenges.js';
 import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder } from './notifications.js';
+import { applyMidnightPenalty, scheduleSavageNotifs, startSavageInterval, getShredChallenge } from './savage.js';
 
 const PRESET_HOBBIES = [
   { id: 'reading', name: 'Reading', icon: '📚' },
@@ -263,8 +264,23 @@ async function showApp() {
   await refreshHome();
   // Re-arm scheduled triggers (in case browser cleared them)
   try { await scheduleDailyReminder(); await checkMissedReminder(); } catch {}
+  // Shred mode: apply penalty for yesterday + arm hourly notifications
+  try {
+    await applyMidnightPenalty();
+    await scheduleSavageNotifs();
+    startSavageInterval(getProfile);
+  } catch {}
 
   document.addEventListener('lt:refresh-home', refreshHome);
+  document.addEventListener('lt:penalty', (e) => {
+    const banner = $('#penalty-banner');
+    const text = $('#penalty-text');
+    if (banner && text) {
+      text.textContent = `💀 -${e.detail.xp} XP penalty — ${e.detail.reason}`;
+      banner.classList.remove('hidden');
+      setTimeout(() => banner.classList.add('hidden'), 8000);
+    }
+  });
 }
 
 function switchTab(tab) {
@@ -304,21 +320,31 @@ async function refreshHome() {
   const banner = $('#backup-banner');
   banner.classList.toggle('hidden', !(await shouldShowBackupBanner()));
 
+  // Shred mode badge
+  $('#shred-badge')?.classList.toggle('hidden', !p.shredMode);
+
   // Daily challenge
   renderChallengeCard().catch((e) => console.warn('[challenge]', e));
 
   // Rings — calories, protein, water
   const totals = await getDailyTotals();
   const water = await getWaterToday(p);
-  setRing($('#ring-cal'), totals.calories / Math.max(1, p.goals.calories));
-  setRing($('#ring-pro'), totals.protein / Math.max(1, p.goals.protein));
-  setRing($('#ring-water'), water / Math.max(1, p.goals.water));
-  $('#num-cal').textContent = `${totals.calories}/${p.goals.calories}`;
-  $('#num-pro').textContent = `${totals.protein}/${p.goals.protein}`;
-  $('#num-water').textContent = `${water}/${p.goals.water}`;
-
-  // Stat bars
-  renderStatBars(totals, water, p);
+  const calPct = Math.min(100, Math.round((totals.calories / Math.max(1, p.goals.calories)) * 100));
+  const proPct = Math.min(100, Math.round((totals.protein / Math.max(1, p.goals.protein)) * 100));
+  const watPct = Math.min(100, Math.round((water / Math.max(1, p.goals.water)) * 100));
+  setRing($('#ring-cal'), calPct / 100);
+  setRing($('#ring-pro'), proPct / 100);
+  setRing($('#ring-water'), watPct / 100);
+  $('#num-cal').textContent = totals.calories;
+  $('#num-pro').textContent = totals.protein;
+  $('#num-water').textContent = water;
+  $('#pct-cal').textContent = `${calPct}%`;
+  $('#pct-pro').textContent = `${proPct}%`;
+  $('#pct-water').textContent = `${watPct}%`;
+  // Glow ring cards at 100%
+  $('#rc-cal')?.classList.toggle('ring-complete', calPct >= 100);
+  $('#rc-pro')?.classList.toggle('ring-complete', proPct >= 100);
+  $('#rc-water')?.classList.toggle('ring-complete', watPct >= 100);
 
   // Quests
   const { quests, allDone } = await computeQuests();
@@ -331,6 +357,7 @@ async function refreshHome() {
     li.innerHTML = `
       <div class="quest-check">${q.done ? '✓' : ''}</div>
       <div class="quest-text">${q.label}<small>${q.sub}</small><div class="quest-prog"><span style="width:${pct}%"></span></div></div>
+      <div class="quest-xp">+${q.xp}<span class="quest-xp-unit">XP</span></div>
     `;
     ul.appendChild(li);
   }
@@ -343,57 +370,35 @@ async function refreshHome() {
     await awardXP(50, 'All quests done!');
   }
 
-  // Daily score + streak strip
+  // Daily score row + streak strip
   const score = await computeDailyScoreLocal();
   await persistDailyScore(score, null);
-  renderScoreCard(score);
+  renderScoreRow(score);
   await renderStreakStrip();
 }
 
-function renderStatBars(totals, water, p) {
-  const el = $('#stat-bars');
-  if (!el) return;
-  const bars = [
-    { emoji: '🔥', label: 'Calories', val: totals.calories, max: p.goals.calories, color: 'var(--blue)' },
-    { emoji: '🥩', label: 'Protein', val: totals.protein, max: p.goals.protein, color: 'var(--green)', unit: 'g' },
-    { emoji: '💧', label: 'Water', val: water, max: p.goals.water, color: 'var(--cyan)', unit: 'ml' },
-  ];
-  el.innerHTML = bars.map(({ emoji, label, val, max, color, unit = '' }) => {
-    const pct = Math.min(100, Math.round((val / Math.max(1, max)) * 100));
-    const glow = pct >= 100 ? `box-shadow:0 0 8px ${color};` : '';
-    return `<div class="sb-row">
-      <span class="sb-emoji">${emoji}</span>
-      <span class="sb-label">${label}</span>
-      <div class="sb-track"><div class="sb-fill" style="width:${pct}%;background:${color};${glow}"></div></div>
-      <span class="sb-val">${val}${unit}<br><span style="opacity:.5">${max}${unit}</span></span>
-    </div>`;
-  }).join('');
-}
-
-function renderScoreCard(score) {
-  const el = $('#score-card');
+function renderScoreRow(score) {
+  const el = $('#score-row');
   if (!el) return;
   const act = score.activityScore || 0;
   const out = score.outputScore || 0;
-  if (act === 0 && out === 0) { el.classList.add('hidden'); return; }
-  el.classList.remove('hidden');
   el.innerHTML = `
-    <div class="sc-title">Today's score</div>
-    <div class="sc-row">
-      <span class="sc-label">Activity</span>
-      <div class="sc-track"><div class="sc-fill green" style="width:${act}%"></div></div>
-      <span class="sc-num">${act}</span>
+    <div class="sr-bar">
+      <span class="sr-label">Activity</span>
+      <div class="sr-track"><div class="sr-fill green" style="width:${act}%"></div></div>
+      <span class="sr-num">${act}</span>
     </div>
-    <div class="sc-row">
-      <span class="sc-label">Output</span>
-      <div class="sc-track"><div class="sc-fill amber" style="width:${out}%"></div></div>
-      <span class="sc-num">${out}</span>
+    <div class="sr-bar">
+      <span class="sr-label">Output</span>
+      <div class="sr-track"><div class="sr-fill amber" style="width:${out}%"></div></div>
+      <span class="sr-num">${out}</span>
     </div>`;
 }
 
 async function renderStreakStrip() {
   const el = $('#streak-strip');
   if (!el) return;
+  const p = await getProfile();
   const allScores = await getAll(STORES.dailyScores);
   const scoreMap = new Map(allScores.map((s) => [s.date, (s.activityScore || 0) > 0]));
   const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -405,7 +410,10 @@ async function renderStreakStrip() {
     const ds = d.toISOString().slice(0, 10);
     const logged = scoreMap.get(ds) || false;
     const isToday = ds === today;
+    const flame = isToday && (p.streak || 0) > 0 ? '<div class="ss-flame">🔥</div>' : '';
     html.push(`<div class="ss-day${logged ? ' logged' : ''}${isToday ? ' today' : ''}">
+      ${flame}
+      <div class="ss-daynum">${d.getDate()}</div>
       <div class="ss-dot"></div>
       <div class="ss-label">${dayNames[d.getDay()]}</div>
     </div>`);
@@ -525,11 +533,13 @@ async function refreshSettings() {
     $('#last-backup-text').textContent = 'Never exported.';
   }
   refreshNotifSettings();
+  refreshShredSettings();
 }
 
 function wireSettings() {
   bindCalorieSetup(document, 'set');
   wireNotifSettings();
+  wireShredSettings();
 
   async function saveSettingsProfileAndGoals() {
     const age = Number($('#set-age').value);
@@ -645,6 +655,54 @@ function escapeHtml(s) {
 async function renderChallengeCard() {
   const root = $('#challenge-card');
   if (!root) return;
+  const p = await getProfile();
+
+  // In shred mode: inject a shred challenge as a second brutal card above the normal one
+  let shredEl = $('#shred-challenge-card');
+  if (p.shredMode) {
+    if (!shredEl) {
+      shredEl = document.createElement('div');
+      shredEl.id = 'shred-challenge-card';
+      shredEl.className = 'challenge-card shred-challenge-card';
+      root.parentNode.insertBefore(shredEl, root);
+    }
+    const sc = p.shredChallenge && p.shredChallenge.date === todayStr()
+      ? p.shredChallenge
+      : (() => { const c = getShredChallenge(); saveProfile({ shredChallenge: { ...c, date: todayStr(), done: false } }); return { ...c, date: todayStr(), done: false }; })();
+
+    if (sc.done) {
+      shredEl.innerHTML = `<div class="ch-row"><div class="ch-icon">💀</div><div class="ch-body"><div class="ch-text shred-text">${escapeHtml(sc.text)}</div><div class="ch-meta muted small">✓ Crushed it · +${sc.xp} XP</div></div></div>`;
+    } else {
+      shredEl.innerHTML = `
+        <div class="shred-ch-label">💀 SHRED CHALLENGE</div>
+        <div class="ch-row">
+          <div class="ch-icon">🔥</div>
+          <div class="ch-body">
+            <div class="ch-text shred-text">${escapeHtml(sc.text)}</div>
+            <div class="ch-meta muted small">${sc.type} · +${sc.xp} XP</div>
+          </div>
+        </div>
+        <div class="ch-actions">
+          <button class="btn btn-sm shred-reroll-btn" id="sh-reroll">Different one</button>
+          <button class="btn btn-sm shred-done-btn" id="sh-done">CRUSHED IT 💪</button>
+        </div>`;
+      shredEl.querySelector('#sh-reroll')?.addEventListener('click', async () => {
+        const c = getShredChallenge();
+        await saveProfile({ shredChallenge: { ...c, date: todayStr(), done: false } });
+        renderChallengeCard();
+      });
+      shredEl.querySelector('#sh-done')?.addEventListener('click', async () => {
+        const sp = await getProfile();
+        if (sp.shredChallenge) await saveProfile({ shredChallenge: { ...sp.shredChallenge, done: true } });
+        await awardXP(sc.xp || 80, 'Shred challenge!');
+        renderChallengeCard();
+        refreshHome();
+      });
+    }
+  } else if (shredEl) {
+    shredEl.remove();
+  }
+
   const ch = await getDailyChallenge();
   if (ch.done) {
     root.classList.add('done');
@@ -731,6 +789,64 @@ function wireNotifSettings() {
     await setReminderHour(h);
     refreshNotifSettings();
   });
+}
+
+async function refreshShredSettings() {
+  const p = await getProfile();
+  const shredBtn = $('#set-shred-toggle');
+  const savageRow = $('#shred-savage-row');
+  const savageBtn = $('#set-savage-toggle');
+  const hint = $('#shred-notif-hint');
+
+  if (!shredBtn) return;
+  shredBtn.setAttribute('aria-pressed', String(!!p.shredMode));
+  shredBtn.classList.toggle('on', !!p.shredMode);
+  if (savageRow) savageRow.classList.toggle('hidden', !p.shredMode);
+
+  if (savageBtn) {
+    savageBtn.setAttribute('aria-pressed', String(!!p.savageNotifs));
+    savageBtn.classList.toggle('on', !!p.savageNotifs);
+  }
+
+  const perm = await getPermission();
+  const notifOk = perm === 'granted' && p.notificationsEnabled;
+  if (hint) hint.classList.toggle('hidden', !p.shredMode || notifOk);
+}
+
+function wireShredSettings() {
+  const shredBtn = $('#set-shred-toggle');
+  const savageBtn = $('#set-savage-toggle');
+  if (!shredBtn) return;
+
+  shredBtn.addEventListener('click', async () => {
+    const p = await getProfile();
+    const next = !p.shredMode;
+    await saveProfile({ shredMode: next, savageNotifs: next ? p.savageNotifs : false });
+    if (next) toast('🔥 Shred Mode activated. No mercy.', 'success');
+    else toast('Shred Mode off.', 'success');
+    refreshShredSettings();
+    refreshHome();
+  });
+
+  if (savageBtn) {
+    savageBtn.addEventListener('click', async () => {
+      const p = await getProfile();
+      const perm = await getPermission();
+      if (perm !== 'granted' || !p.notificationsEnabled) {
+        toast('Enable notifications first', 'error');
+        return;
+      }
+      const next = !p.savageNotifs;
+      await saveProfile({ savageNotifs: next });
+      if (next) {
+        await scheduleSavageNotifs();
+        toast('💀 Savage notifications armed. Good luck.', 'success');
+      } else {
+        toast('Savage notifications off.', 'success');
+      }
+      refreshShredSettings();
+    });
+  }
 }
 
 boot();

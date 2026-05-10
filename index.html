@@ -126,36 +126,47 @@
           <button class="btn btn-sm" id="banner-export">Export now</button>
         </div>
 
+        <div id="penalty-banner" class="penalty-banner hidden">
+          <span id="penalty-text">💀 XP penalty applied for yesterday</span>
+        </div>
+
+        <div id="shred-badge" class="shred-badge hidden">🔥 SHRED MODE</div>
+
         <div id="streak-strip" class="streak-strip"></div>
 
+        <div id="score-row" class="score-row"></div>
+
         <div class="rings-row">
-          <div class="ring-card">
+          <div class="ring-card" id="rc-cal">
             <svg class="ring" viewBox="0 0 120 120">
               <circle class="ring-bg" cx="60" cy="60" r="52" />
               <circle class="ring-fg" id="ring-cal" cx="60" cy="60" r="52" stroke="#4488ff" />
             </svg>
             <div class="ring-label">
               <div class="ring-num" id="num-cal">0</div>
+              <div class="ring-pct" id="pct-cal">0%</div>
               <div class="ring-cap">cal</div>
             </div>
           </div>
-          <div class="ring-card">
+          <div class="ring-card" id="rc-pro">
             <svg class="ring" viewBox="0 0 120 120">
               <circle class="ring-bg" cx="60" cy="60" r="52" />
               <circle class="ring-fg" id="ring-pro" cx="60" cy="60" r="52" stroke="#00ff88" />
             </svg>
             <div class="ring-label">
               <div class="ring-num" id="num-pro">0</div>
+              <div class="ring-pct" id="pct-pro">0%</div>
               <div class="ring-cap">protein</div>
             </div>
           </div>
-          <div class="ring-card">
+          <div class="ring-card" id="rc-water">
             <svg class="ring" viewBox="0 0 120 120">
               <circle class="ring-bg" cx="60" cy="60" r="52" />
               <circle class="ring-fg" id="ring-water" cx="60" cy="60" r="52" stroke="#00ccff" />
             </svg>
             <div class="ring-label">
               <div class="ring-num" id="num-water">0</div>
+              <div class="ring-pct" id="pct-water">0%</div>
               <div class="ring-cap">water</div>
             </div>
             <div class="water-controls">
@@ -164,9 +175,6 @@
             </div>
           </div>
         </div>
-
-        <div id="stat-bars" class="stat-bars-card"></div>
-        <div id="score-card" class="score-card hidden"></div>
 
         <h3 class="sec-title">Today's challenge</h3>
         <div id="challenge-card" class="challenge-card">
@@ -178,10 +186,10 @@
 
         <h3 class="sec-title">Quick log</h3>
         <div class="quick-grid">
-          <button class="quick-btn" data-go="meals"><span>🍳</span>Meal</button>
-          <button class="quick-btn" data-go="workout"><span>💪</span>Workout</button>
-          <button class="quick-btn" data-go="hobbies"><span>🎨</span>Hobby</button>
-          <button class="quick-btn" id="quick-weight"><span>⚖️</span>Weight</button>
+          <button class="quick-btn" data-go="meals" data-accent="#00ff88"><span>🍳</span>Meal</button>
+          <button class="quick-btn" data-go="workout" data-accent="#4488ff"><span>💪</span>Workout</button>
+          <button class="quick-btn" data-go="hobbies" data-accent="#aa44ff"><span>🎨</span>Hobby</button>
+          <button class="quick-btn" id="quick-weight" data-accent="#ffaa00"><span>⚖️</span>Weight</button>
         </div>
       </section>
 
@@ -212,19 +220,21 @@
 
       <!-- Meals -->
       <section class="screen hidden" id="screen-meals">
-        <div class="meal-rings">
-          <div class="mini-ring" data-color="#4488ff">
-            <div class="mr-num" id="mr-cal">0</div>
-            <div class="mr-cap">cal</div>
-            <div class="mr-bar"><div class="mr-bar-fill" style="background:#4488ff"></div></div>
+        <div class="macro-strip">
+          <div class="ms-block">
+            <div class="ms-label">🔥 <span id="mr-cal">0</span> kcal</div>
+            <div class="ms-bar"><div class="ms-fill" id="ms-cal-fill" style="background:var(--blue)"></div></div>
+            <div class="ms-pct muted small" id="ms-cal-pct">0%</div>
           </div>
-          <div class="mini-ring" data-color="#00ff88">
-            <div class="mr-num" id="mr-pro">0</div>
-            <div class="mr-cap">protein</div>
-            <div class="mr-bar"><div class="mr-bar-fill" style="background:#00ff88"></div></div>
+          <div class="ms-divider"></div>
+          <div class="ms-block">
+            <div class="ms-label">🥩 <span id="mr-pro">0</span>g P</div>
+            <div class="ms-bar"><div class="ms-fill" id="ms-pro-fill" style="background:var(--green)"></div></div>
+            <div class="ms-pct muted small" id="ms-pro-pct">0%</div>
           </div>
-          <div class="mini-ring" data-color="#ffaa00"><div class="mr-num" id="mr-carbs">0</div><div class="mr-cap">carbs</div></div>
-          <div class="mini-ring" data-color="#ff5588"><div class="mr-num" id="mr-fat">0</div><div class="mr-cap">fat</div></div>
+          <div class="ms-divider"></div>
+          <div class="ms-plain muted small">C <span id="mr-carbs">0</span>g</div>
+          <div class="ms-plain muted small">F <span id="mr-fat">0</span>g</div>
         </div>
         <div id="meal-slots" class="meal-slots"></div>
       </section>
@@ -367,6 +377,24 @@
           </label>
           <span class="muted small" id="notif-status"></span>
         </div>
+
+        <h3 class="sec-title">Shred Mode 🔥</h3>
+        <p class="muted small">Cuts focus, XP penalties for missed days/quests, hourly sarcastic push notifications, and brutal random challenges. Not for the weak.</p>
+        <div class="shred-toggle-row">
+          <div class="shred-toggle-info">
+            <span id="shred-mode-label">Shred Mode</span>
+            <span class="muted small" id="shred-mode-sub">Off</span>
+          </div>
+          <button class="toggle-btn" id="set-shred-toggle" aria-pressed="false"></button>
+        </div>
+        <div id="shred-savage-row" class="shred-savage-row hidden">
+          <div class="shred-toggle-info">
+            <span>Savage hourly notifications</span>
+            <span class="muted small">Sarcastic push every hour</span>
+          </div>
+          <button class="toggle-btn" id="set-savage-toggle" aria-pressed="false"></button>
+        </div>
+        <p class="muted small hidden" id="shred-notif-hint">Enable reminders above to unlock savage notifications.</p>
 
         <h3 class="sec-title">Data</h3>
         <div class="row-wrap">
