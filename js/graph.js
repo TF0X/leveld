@@ -197,12 +197,24 @@ function renderHeatmap(scoresArr) {
   if (!root) return;
   root.innerHTML = '';
   const map = Object.fromEntries(scoresArr.map((s) => [s.date, s]));
-  const days = 91; // 13 weeks × 7 = ~3 months
+  const days = 91;
   const today = new Date();
-  // Align to weeks — find day-of-week offset so columns are weeks
-  const startOffset = (today.getDay() + 1) % 7; // pad so today lands at end
+
+  // Find the oldest day and how many empty cells to prepend so col 1 starts on Sunday
+  const oldest = new Date(today);
+  oldest.setDate(today.getDate() - (days - 1));
+  const leadPad = oldest.getDay(); // 0=Sun … 6=Sat
+
   const grid = document.createElement('div');
   grid.className = 'heatmap-grid';
+
+  // Leading empty spacers for week alignment
+  for (let i = 0; i < leadPad; i++) {
+    const pad = document.createElement('div');
+    pad.className = 'hm-cell hm-empty';
+    grid.appendChild(pad);
+  }
+
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
@@ -216,6 +228,7 @@ function renderHeatmap(scoresArr) {
     cell.addEventListener('click', () => showDayDetail(dateStr_, sc));
     grid.appendChild(cell);
   }
+
   root.appendChild(grid);
   const legend = document.createElement('div');
   legend.className = 'hm-legend';
