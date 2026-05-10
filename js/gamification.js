@@ -134,11 +134,11 @@ export async function computeQuests() {
   ]);
   const totalProtein = meals.reduce((s, m) => s + (m.nutrition?.protein || 0), 0);
   const quests = [
-    { id: 'meals3', label: 'Log 3 meals', sub: `${meals.length}/3`, done: meals.length >= 3 },
-    { id: 'workout', label: 'Complete a workout', sub: workouts.length ? 'done' : 'not yet', done: workouts.length > 0 },
-    { id: 'protein', label: 'Hit protein goal', sub: `${totalProtein}/${p.goals.protein}g`, done: totalProtein >= p.goals.protein },
-    { id: 'hobby', label: 'Log a hobby', sub: hobbies.length ? `${hobbies.length} logged` : 'not yet', done: hobbies.length > 0 },
-    { id: 'weight', label: 'Log weight', sub: body.length ? 'done' : 'not yet', done: body.length > 0 },
+    { id: 'meals3', label: 'Log 3 meals', sub: `${meals.length}/3`, done: meals.length >= 3, progress: Math.min(3, meals.length), progressMax: 3 },
+    { id: 'workout', label: 'Complete a workout', sub: workouts.length ? 'done ✓' : 'not yet', done: workouts.length > 0, progress: workouts.length > 0 ? 1 : 0, progressMax: 1 },
+    { id: 'protein', label: 'Hit protein goal', sub: `${totalProtein}/${p.goals.protein}g`, done: totalProtein >= p.goals.protein, progress: Math.min(p.goals.protein, totalProtein), progressMax: p.goals.protein },
+    { id: 'hobby', label: 'Log a hobby', sub: hobbies.length ? `${hobbies.length} logged ✓` : 'not yet', done: hobbies.length > 0, progress: hobbies.length > 0 ? 1 : 0, progressMax: 1 },
+    { id: 'weight', label: 'Log weight', sub: body.length ? 'done ✓' : 'not yet', done: body.length > 0, progress: body.length > 0 ? 1 : 0, progressMax: 1 },
   ];
   return { quests, allDone: quests.every((q) => q.done) };
 }

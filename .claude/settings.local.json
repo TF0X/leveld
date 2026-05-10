@@ -13,7 +13,14 @@
       "Bash(powershell -NoProfile -Command \"\\(Get-Content 'd:\\\\leveld\\\\css\\\\components.css' | Measure-Object -Line\\).Lines\")",
       "PowerShell($proc = Start-Process -FilePath 'python' -ArgumentList '-m','http.server','8765','--directory','d:\\\\leveld' -PassThru -WindowStyle Hidden; Start-Sleep -Milliseconds 800; foreach \\($p in @\\('/index.html','/js/app.js','/js/addany.js','/js/gemini.js','/css/components.css'\\)\\) { try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:8765$p\" -UseBasicParsing -TimeoutSec 5; \"$p`tHTTP $\\($r.StatusCode\\) $\\($r.RawContentLength\\)b\" } catch { \"$p`tERR $_\" } }; Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue)",
       "PowerShell(node --check d:\\\\leveld\\\\js\\\\gemini.js 2>&1)",
-      "PowerShell(if \\($LASTEXITCODE -eq 0\\) { 'OK' } else { 'FAIL' })"
+      "PowerShell(if \\($LASTEXITCODE -eq 0\\) { 'OK' } else { 'FAIL' })",
+      "Bash(Get-ChildItem -Path \"D:\\\\leveld\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "WebFetch(domain:world.openfoodfacts.org)",
+      "WebFetch(domain:calorieninjas.com)",
+      "WebFetch(domain:fdc.nal.usda.gov)",
+      "WebFetch(domain:in.openfoodfacts.org)",
+      "WebSearch"
     ]
   }
 }

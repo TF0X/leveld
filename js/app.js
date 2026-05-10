@@ -296,6 +296,9 @@ async function refreshHome() {
   $('#hd-xp-fill').style.width = `${Math.max(0, pct)}%`;
   $('#hd-streak-num').textContent = p.streak || 0;
   $('#hd-freeze-num').textContent = p.freezeTokens || 0;
+  const xpLeft = next - p.totalXP;
+  const xpTextEl = $('#hd-xp-text');
+  if (xpTextEl) xpTextEl.textContent = `${p.totalXP} XP · ${xpLeft > 0 ? `${xpLeft} to lv${p.level + 1}` : 'MAX'}`;
 
   // Backup banner
   const banner = $('#backup-banner');
@@ -314,6 +317,9 @@ async function refreshHome() {
   $('#num-pro').textContent = `${totals.protein}/${p.goals.protein}`;
   $('#num-water').textContent = `${water}/${p.goals.water}`;
 
+  // Stat bars
+  renderStatBars(totals, water, p);
+
   // Quests
   const { quests, allDone } = await computeQuests();
   const ul = $('#quest-list');
@@ -321,9 +327,10 @@ async function refreshHome() {
   for (const q of quests) {
     const li = document.createElement('li');
     li.className = `quest-item${q.done ? ' done' : ''}`;
+    const pct = q.progressMax ? Math.round((q.progress / q.progressMax) * 100) : (q.done ? 100 : 0);
     li.innerHTML = `
       <div class="quest-check">${q.done ? '✓' : ''}</div>
-      <div class="quest-text">${q.label}<small>${q.sub}</small></div>
+      <div class="quest-text">${q.label}<small>${q.sub}</small><div class="quest-prog"><span style="width:${pct}%"></span></div></div>
     `;
     ul.appendChild(li);
   }
@@ -336,9 +343,74 @@ async function refreshHome() {
     await awardXP(50, 'All quests done!');
   }
 
-  // Persist daily score (local computation)
+  // Daily score + streak strip
   const score = await computeDailyScoreLocal();
   await persistDailyScore(score, null);
+  renderScoreCard(score);
+  await renderStreakStrip();
+}
+
+function renderStatBars(totals, water, p) {
+  const el = $('#stat-bars');
+  if (!el) return;
+  const bars = [
+    { emoji: '🔥', label: 'Calories', val: totals.calories, max: p.goals.calories, color: 'var(--blue)' },
+    { emoji: '🥩', label: 'Protein', val: totals.protein, max: p.goals.protein, color: 'var(--green)', unit: 'g' },
+    { emoji: '💧', label: 'Water', val: water, max: p.goals.water, color: 'var(--cyan)', unit: 'ml' },
+  ];
+  el.innerHTML = bars.map(({ emoji, label, val, max, color, unit = '' }) => {
+    const pct = Math.min(100, Math.round((val / Math.max(1, max)) * 100));
+    const glow = pct >= 100 ? `box-shadow:0 0 8px ${color};` : '';
+    return `<div class="sb-row">
+      <span class="sb-emoji">${emoji}</span>
+      <span class="sb-label">${label}</span>
+      <div class="sb-track"><div class="sb-fill" style="width:${pct}%;background:${color};${glow}"></div></div>
+      <span class="sb-val">${val}${unit}<br><span style="opacity:.5">${max}${unit}</span></span>
+    </div>`;
+  }).join('');
+}
+
+function renderScoreCard(score) {
+  const el = $('#score-card');
+  if (!el) return;
+  const act = score.activityScore || 0;
+  const out = score.outputScore || 0;
+  if (act === 0 && out === 0) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="sc-title">Today's score</div>
+    <div class="sc-row">
+      <span class="sc-label">Activity</span>
+      <div class="sc-track"><div class="sc-fill green" style="width:${act}%"></div></div>
+      <span class="sc-num">${act}</span>
+    </div>
+    <div class="sc-row">
+      <span class="sc-label">Output</span>
+      <div class="sc-track"><div class="sc-fill amber" style="width:${out}%"></div></div>
+      <span class="sc-num">${out}</span>
+    </div>`;
+}
+
+async function renderStreakStrip() {
+  const el = $('#streak-strip');
+  if (!el) return;
+  const allScores = await getAll(STORES.dailyScores);
+  const scoreMap = new Map(allScores.map((s) => [s.date, (s.activityScore || 0) > 0]));
+  const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const today = todayStr();
+  const html = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0, 10);
+    const logged = scoreMap.get(ds) || false;
+    const isToday = ds === today;
+    html.push(`<div class="ss-day${logged ? ' logged' : ''}${isToday ? ' today' : ''}">
+      <div class="ss-dot"></div>
+      <div class="ss-label">${dayNames[d.getDay()]}</div>
+    </div>`);
+  }
+  el.innerHTML = html.join('');
 }
 
 async function getWaterToday(p) {

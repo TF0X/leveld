@@ -10,11 +10,17 @@ export async function renderMeals() {
   const today = todayStr();
   const [meals, profile] = await Promise.all([getByDate(STORES.meals, today), getProfile()]);
   const totals = sumNutrition(meals);
-  // mini ring numbers (no actual ring stroke for these — labels only)
   $('#mr-cal').textContent = totals.calories;
   $('#mr-pro').textContent = `${totals.protein}g`;
   $('#mr-carbs').textContent = `${totals.carbs}g`;
   $('#mr-fat').textContent = `${totals.fat}g`;
+  // Progress bar fills for cal and protein (the two goal-tracked macros)
+  const calPct = Math.min(100, Math.round((totals.calories / Math.max(1, profile.goals.calories)) * 100));
+  const proPct = Math.min(100, Math.round((totals.protein / Math.max(1, profile.goals.protein)) * 100));
+  const calBar = document.querySelector('[data-color="#4488ff"] .mr-bar-fill');
+  const proBar = document.querySelector('[data-color="#00ff88"] .mr-bar-fill');
+  if (calBar) calBar.style.width = `${calPct}%`;
+  if (proBar) proBar.style.width = `${proPct}%`;
 
   const slots = $('#meal-slots');
   slots.innerHTML = '';

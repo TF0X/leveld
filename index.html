@@ -109,6 +109,7 @@
         <div>
           <div class="hd-rank" id="hd-rank">Beginner</div>
           <div class="hd-xp-bar"><span id="hd-xp-fill"></span></div>
+          <div class="hd-xp-text" id="hd-xp-text">0 XP</div>
         </div>
       </div>
       <div class="hd-right">
@@ -124,6 +125,8 @@
           <span>You haven't backed up in a while.</span>
           <button class="btn btn-sm" id="banner-export">Export now</button>
         </div>
+
+        <div id="streak-strip" class="streak-strip"></div>
 
         <div class="rings-row">
           <div class="ring-card">
@@ -161,6 +164,9 @@
             </div>
           </div>
         </div>
+
+        <div id="stat-bars" class="stat-bars-card"></div>
+        <div id="score-card" class="score-card hidden"></div>
 
         <h3 class="sec-title">Today's challenge</h3>
         <div id="challenge-card" class="challenge-card">
@@ -207,10 +213,18 @@
       <!-- Meals -->
       <section class="screen hidden" id="screen-meals">
         <div class="meal-rings">
-          <div class="mini-ring" data-color="#4488ff"><div class="mr-num" id="mr-cal">0</div><div class="mr-cap">cal</div></div>
-          <div class="mini-ring" data-color="#00ff88"><div class="mr-num" id="mr-pro">0</div><div class="mr-cap">P</div></div>
-          <div class="mini-ring" data-color="#ffaa00"><div class="mr-num" id="mr-carbs">0</div><div class="mr-cap">C</div></div>
-          <div class="mini-ring" data-color="#ff5588"><div class="mr-num" id="mr-fat">0</div><div class="mr-cap">F</div></div>
+          <div class="mini-ring" data-color="#4488ff">
+            <div class="mr-num" id="mr-cal">0</div>
+            <div class="mr-cap">cal</div>
+            <div class="mr-bar"><div class="mr-bar-fill" style="background:#4488ff"></div></div>
+          </div>
+          <div class="mini-ring" data-color="#00ff88">
+            <div class="mr-num" id="mr-pro">0</div>
+            <div class="mr-cap">protein</div>
+            <div class="mr-bar"><div class="mr-bar-fill" style="background:#00ff88"></div></div>
+          </div>
+          <div class="mini-ring" data-color="#ffaa00"><div class="mr-num" id="mr-carbs">0</div><div class="mr-cap">carbs</div></div>
+          <div class="mini-ring" data-color="#ff5588"><div class="mr-num" id="mr-fat">0</div><div class="mr-cap">fat</div></div>
         </div>
         <div id="meal-slots" class="meal-slots"></div>
       </section>
