@@ -20,7 +20,9 @@
       "WebFetch(domain:calorieninjas.com)",
       "WebFetch(domain:fdc.nal.usda.gov)",
       "WebFetch(domain:in.openfoodfacts.org)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(Get-ChildItem *)",
+      "Bash(git commit *)"
     ]
   }
 }
