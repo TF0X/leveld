@@ -114,7 +114,10 @@ export async function renderProgress(range = currentRange) {
     for (const r of prs.sort((a, b) => (b.bestWeightKg || 0) - (a.bestWeightKg || 0))) {
       const row = document.createElement('div');
       row.className = 'pr-row';
-      row.innerHTML = `<div>${escapeHtml(r.exerciseName)}</div><div class="pr-w">${r.bestWeightKg}kg × ${r.bestReps}</div><div class="pr-d">${r.achievedDate}</div>`;
+      const prVal = r.bodyweight
+        ? `${r.bestReps} reps`
+        : `${r.bestWeightKg}kg × ${r.bestReps}`;
+      row.innerHTML = `<div>${escapeHtml(r.exerciseName)}</div><div class="pr-w">${prVal}</div><div class="pr-d">${r.achievedDate}</div>`;
       prRoot.appendChild(row);
     }
   }

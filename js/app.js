@@ -330,22 +330,23 @@ async function refreshHome() {
   // Rings — calories, protein, water
   const totals = await getDailyTotals();
   const water = await getWaterToday(p);
-  const calPct = Math.min(100, Math.round((totals.calories / Math.max(1, p.goals.calories)) * 100));
-  const proPct = Math.min(100, Math.round((totals.protein / Math.max(1, p.goals.protein)) * 100));
-  const watPct = Math.min(100, Math.round((water / Math.max(1, p.goals.water)) * 100));
-  setRing($('#ring-cal'), calPct / 100);
-  setRing($('#ring-pro'), proPct / 100);
-  setRing($('#ring-water'), watPct / 100);
-  $('#num-cal').textContent = totals.calories;
-  $('#num-pro').textContent = totals.protein;
+  const calRaw = Math.round((totals.calories / Math.max(1, p.goals.calories)) * 100);
+  const proRaw = Math.round((totals.protein  / Math.max(1, p.goals.protein))  * 100);
+  const watRaw = Math.round((water           / Math.max(1, p.goals.water))    * 100);
+  setRing($('#ring-cal'),   Math.min(1, calRaw / 100));
+  setRing($('#ring-pro'),   Math.min(1, proRaw / 100));
+  setRing($('#ring-water'), Math.min(1, watRaw / 100));
+  $('#num-cal').textContent   = totals.calories;
+  $('#num-pro').textContent   = totals.protein;
   $('#num-water').textContent = water;
-  $('#pct-cal').textContent = `${calPct}%`;
-  $('#pct-pro').textContent = `${proPct}%`;
-  $('#pct-water').textContent = `${watPct}%`;
-  // Glow ring cards at 100%
-  $('#rc-cal')?.classList.toggle('ring-complete', calPct >= 100);
-  $('#rc-pro')?.classList.toggle('ring-complete', proPct >= 100);
-  $('#rc-water')?.classList.toggle('ring-complete', watPct >= 100);
+  $('#pct-cal').textContent   = `${calRaw}%`;
+  $('#pct-pro').textContent   = `${proRaw}%`;
+  $('#pct-water').textContent = `${watRaw}%`;
+  // Glow ring at 100%, turn red when over
+  $('#rc-cal')?.classList.toggle('ring-complete', calRaw >= 100 && calRaw <= 110);
+  $('#rc-cal')?.classList.toggle('ring-over',     calRaw > 110);
+  $('#rc-pro')?.classList.toggle('ring-complete', proRaw >= 100);
+  $('#rc-water')?.classList.toggle('ring-complete', watRaw >= 100);
 
   // Quests
   const { quests, allDone } = await computeQuests();

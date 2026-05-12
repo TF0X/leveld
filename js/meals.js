@@ -15,15 +15,21 @@ export async function renderMeals() {
   $('#mr-pro').textContent = totals.protein;
   $('#mr-carbs').textContent = totals.carbs;
   $('#mr-fat').textContent = totals.fat;
-  const calPct = Math.min(100, Math.round((totals.calories / Math.max(1, profile.goals.calories)) * 100));
+  const calRaw = Math.round((totals.calories / Math.max(1, profile.goals.calories)) * 100);
   const proPct = Math.min(100, Math.round((totals.protein / Math.max(1, profile.goals.protein)) * 100));
   const calFill = $('#ms-cal-fill');
   const proFill = $('#ms-pro-fill');
-  if (calFill) calFill.style.width = `${calPct}%`;
+  if (calFill) {
+    calFill.style.width = `${Math.min(100, calRaw)}%`;
+    calFill.style.background = calRaw > 110 ? 'var(--danger)' : calRaw > 100 ? 'var(--amber)' : 'var(--blue)';
+  }
   if (proFill) proFill.style.width = `${proPct}%`;
   const calPctEl = $('#ms-cal-pct');
   const proPctEl = $('#ms-pro-pct');
-  if (calPctEl) calPctEl.textContent = `${calPct}%`;
+  if (calPctEl) {
+    calPctEl.textContent = `${calRaw}%`;
+    calPctEl.style.color = calRaw > 110 ? 'var(--danger)' : calRaw > 100 ? 'var(--amber)' : '';
+  }
   if (proPctEl) proPctEl.textContent = `${proPct}%`;
 
   const slots = $('#meal-slots');

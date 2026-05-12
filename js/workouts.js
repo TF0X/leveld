@@ -12,7 +12,7 @@ function newSession() {
 }
 
 function newExercise() {
-  return { name: '', sets: [{ reps: 0, weight: 0, completed: false }], isPR: false, previousBest: null };
+  return { name: '', bodyweight: false, sets: [{ reps: 0, weight: 0, completed: false }], isPR: false, previousBest: null };
 }
 
 export async function initWorkout() {
@@ -37,7 +37,8 @@ function renderExercises() {
     card.innerHTML = `
       <div class="ex-head">
         <input type="text" placeholder="Exercise name" value="${escapeAttr(ex.name)}" data-ex="${i}" data-field="name" />
-        ${ex.isPR ? '<span class="ex-pr-pill">PR</span>' : ''}
+        ${ex.isPR ? `<span class="ex-pr-pill">${ex.bodyweight ? 'PR reps' : 'PR'}</span>` : ''}
+        <button class="bw-toggle ${ex.bodyweight ? 'on' : ''}" data-bw="${i}" title="Toggle bodyweight">BW</button>
         <button class="meal-del" data-rm-ex="${i}" title="remove">×</button>
       </div>
       <div class="sets"></div>
@@ -46,20 +47,40 @@ function renderExercises() {
     const setsRoot = card.querySelector('.sets');
     ex.sets.forEach((s, j) => {
       const row = document.createElement('div');
-      row.className = 'set-row';
-      row.innerHTML = `
-        <span class="set-idx">${j + 1}</span>
-        <input type="number" inputmode="decimal" placeholder="reps" value="${s.reps || ''}" data-set="${i}-${j}" data-f="reps" />
-        <input type="number" inputmode="decimal" placeholder="kg" value="${s.weight || ''}" data-set="${i}-${j}" data-f="weight" />
-        <button class="set-check ${s.completed ? 'done' : ''}" data-toggle="${i}-${j}">${s.completed ? '✓' : ''}</button>
-        <button class="set-del" data-rm-set="${i}-${j}">×</button>
-      `;
+      row.className = `set-row${ex.bodyweight ? ' bw' : ''}`;
+      row.innerHTML = ex.bodyweight
+        ? `
+          <span class="set-idx">${j + 1}</span>
+          <input type="number" inputmode="numeric" placeholder="reps" value="${s.reps || ''}" data-set="${i}-${j}" data-f="reps" />
+          <span class="set-bw-tag">BW</span>
+          <button class="set-check ${s.completed ? 'done' : ''}" data-toggle="${i}-${j}">${s.completed ? '✓' : ''}</button>
+          <button class="set-del" data-rm-set="${i}-${j}">×</button>
+        `
+        : `
+          <span class="set-idx">${j + 1}</span>
+          <input type="number" inputmode="decimal" placeholder="reps" value="${s.reps || ''}" data-set="${i}-${j}" data-f="reps" />
+          <input type="number" inputmode="decimal" placeholder="kg" value="${s.weight || ''}" data-set="${i}-${j}" data-f="weight" />
+          <button class="set-check ${s.completed ? 'done' : ''}" data-toggle="${i}-${j}">${s.completed ? '✓' : ''}</button>
+          <button class="set-del" data-rm-set="${i}-${j}">×</button>
+        `;
       setsRoot.appendChild(row);
     });
     root.appendChild(card);
   });
 
   // Wire events
+  $$('#wo-exercises .bw-toggle').forEach((btn) =>
+    btn.addEventListener('click', (e) => {
+      const i = Number(e.currentTarget.dataset.bw);
+      session.exercises[i].bodyweight = !session.exercises[i].bodyweight;
+      // clear weight from all sets when switching to BW
+      if (session.exercises[i].bodyweight)
+        session.exercises[i].sets.forEach(s => { s.weight = 0; });
+      session.exercises[i].isPR = false;
+      renderExercises();
+      updateVolume();
+    })
+  );
   $$('#wo-exercises [data-ex]').forEach((inp) =>
     inp.addEventListener('input', (e) => {
       const i = Number(e.target.dataset.ex);
@@ -114,17 +135,35 @@ function renderExercises() {
 async function checkPR(i) {
   const ex = session.exercises[i];
   if (!ex.name) { ex.isPR = false; return; }
-  const maxW = Math.max(0, ...ex.sets.map((s) => s.weight || 0));
-  if (maxW <= 0) { ex.isPR = false; return; }
   const all = await getAll(STORES.personalRecords);
   const prev = all.find((r) => r.exerciseName.toLowerCase() === ex.name.toLowerCase());
   ex.previousBest = prev || null;
-  ex.isPR = !prev || maxW > (prev.bestWeightKg || 0);
+  if (ex.bodyweight) {
+    const maxReps = Math.max(0, ...ex.sets.map((s) => s.reps || 0));
+    ex.isPR = maxReps > 0 && (!prev || maxReps > (prev.bestReps || 0));
+  } else {
+    const maxW = Math.max(0, ...ex.sets.map((s) => s.weight || 0));
+    if (maxW <= 0) { ex.isPR = false; return; }
+    ex.isPR = !prev || maxW > (prev.bestWeightKg || 0);
+  }
 }
 
 function updateVolume() {
-  const total = session.exercises.reduce((s, ex) => s + ex.sets.reduce((a, st) => a + (st.completed ? (st.reps || 0) * (st.weight || 0) : 0), 0), 0);
-  $('#wo-volume').textContent = Math.round(total);
+  const kg = session.exercises
+    .filter(ex => !ex.bodyweight)
+    .reduce((s, ex) => s + ex.sets.reduce((a, st) => a + (st.completed ? (st.reps || 0) * (st.weight || 0) : 0), 0), 0);
+  const bwReps = session.exercises
+    .filter(ex => ex.bodyweight)
+    .reduce((s, ex) => s + ex.sets.reduce((a, st) => a + (st.completed ? (st.reps || 0) : 0), 0), 0);
+  const volEl = $('#wo-volume');
+  const capEl = volEl?.closest('.meta-card')?.querySelector('.meta-cap');
+  if (bwReps > 0 && kg === 0) {
+    volEl.textContent = bwReps;
+    if (capEl) capEl.textContent = 'total reps';
+  } else {
+    volEl.textContent = Math.round(kg);
+    if (capEl) capEl.textContent = bwReps > 0 ? `kg + ${bwReps} BW reps` : 'total kg';
+  }
 }
 
 function startTimer(seconds) {
@@ -144,9 +183,13 @@ function startTimer(seconds) {
 }
 
 async function saveWorkout() {
-  const validEx = session.exercises.filter((ex) => ex.name && ex.sets.some((s) => s.completed));
+  const validEx = session.exercises.filter((ex) =>
+    ex.name && ex.sets.some((s) => s.completed && (s.reps > 0 || s.weight > 0))
+  );
   if (!validEx.length) return toast('Complete at least one set', 'error');
-  const totalVolumeKg = validEx.reduce((s, ex) => s + ex.sets.reduce((a, st) => a + (st.completed ? (st.reps || 0) * (st.weight || 0) : 0), 0), 0);
+  const totalVolumeKg = validEx
+    .filter(ex => !ex.bodyweight)
+    .reduce((s, ex) => s + ex.sets.reduce((a, st) => a + (st.completed ? (st.reps || 0) * (st.weight || 0) : 0), 0), 0);
   const record = {
     date: todayStr(),
     name: session.name || 'Workout',
@@ -160,21 +203,39 @@ async function saveWorkout() {
   // PR updates
   let prCount = 0;
   for (const ex of validEx) {
-    const maxW = Math.max(0, ...ex.sets.filter((s) => s.completed).map((s) => s.weight || 0));
-    if (maxW <= 0) continue;
     const all = await getAll(STORES.personalRecords);
     const prev = all.find((r) => r.exerciseName.toLowerCase() === ex.name.toLowerCase());
-    if (!prev || maxW > (prev.bestWeightKg || 0)) {
-      const bestSet = ex.sets.filter((s) => s.completed).sort((a, b) => (b.weight || 0) - (a.weight || 0))[0];
-      await putRecord(STORES.personalRecords, {
-        exerciseName: ex.name,
-        bestWeightKg: maxW,
-        bestReps: bestSet?.reps || 0,
-        achievedDate: todayStr(),
-      });
-      await awardXP(100, `PR: ${ex.name}`);
-      showPR(ex.name, maxW);
-      prCount++;
+    if (ex.bodyweight) {
+      const maxReps = Math.max(0, ...ex.sets.filter((s) => s.completed).map((s) => s.reps || 0));
+      if (maxReps <= 0) continue;
+      if (!prev || maxReps > (prev.bestReps || 0)) {
+        await putRecord(STORES.personalRecords, {
+          exerciseName: ex.name,
+          bestWeightKg: 0,
+          bestReps: maxReps,
+          achievedDate: todayStr(),
+          bodyweight: true,
+        });
+        await awardXP(100, `PR: ${ex.name}`);
+        showPR(ex.name, `${maxReps} reps`);
+        prCount++;
+      }
+    } else {
+      const maxW = Math.max(0, ...ex.sets.filter((s) => s.completed).map((s) => s.weight || 0));
+      if (maxW <= 0) continue;
+      if (!prev || maxW > (prev.bestWeightKg || 0)) {
+        const bestSet = ex.sets.filter((s) => s.completed).sort((a, b) => (b.weight || 0) - (a.weight || 0))[0];
+        await putRecord(STORES.personalRecords, {
+          exerciseName: ex.name,
+          bestWeightKg: maxW,
+          bestReps: bestSet?.reps || 0,
+          achievedDate: todayStr(),
+          bodyweight: false,
+        });
+        await awardXP(100, `PR: ${ex.name}`);
+        showPR(ex.name, maxW);
+        prCount++;
+      }
     }
   }
 
