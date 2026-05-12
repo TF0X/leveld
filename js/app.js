@@ -7,13 +7,15 @@ import { checkStreakOnOpen, computeQuests, computeDailyScoreLocal, persistDailyS
 import { renderMeals, getDailyTotals } from './meals.js';
 import { initWorkout } from './workouts.js';
 import { renderHobbies } from './hobbies.js';
+import { renderHabits, openAddHabitModal } from './habits.js';
 import { renderProgress } from './graph.js';
 import { exportAll, importFromFile, shouldShowBackupBanner } from './export.js';
 import { hasKey, scoreDailyActivity, generateWeeklyInsight } from './gemini.js';
 import { openAddAnything } from './addany.js';
 import { getDailyChallenge, skipChallenge, completeChallenge, challengeIcon } from './challenges.js';
-import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder, scheduleWaterReminders, startWaterInterval } from './notifications.js';
+import { NOTIF_SUPPORTED, getPermission, requestPermission, disableNotifications, setReminderHour, checkMissedReminder, scheduleDailyReminder, scheduleWaterReminders, startWaterInterval, scheduleHourlyNotifs, startHourlyInterval } from './notifications.js';
 import { applyMidnightPenalty, scheduleSavageNotifs, startSavageInterval, getShredChallenge } from './savage.js';
+import { initQuoteCard } from './quotes.js';
 
 const PRESET_HOBBIES = [
   { id: 'reading', name: 'Reading', icon: '📚' },
@@ -265,14 +267,32 @@ async function showApp() {
   // Re-arm scheduled triggers (in case browser cleared them)
   try { await scheduleDailyReminder(); await checkMissedReminder(); } catch {}
   try { await scheduleWaterReminders(); startWaterInterval(getProfile); } catch {}
-  // Shred mode: apply penalty for yesterday + arm hourly notifications
+  // Apply penalty + arm savage notifications
   try {
     await applyMidnightPenalty();
     await scheduleSavageNotifs();
     startSavageInterval(getProfile);
   } catch {}
 
+  // Hourly motivational notifications
+  try {
+    const p2 = await getProfile();
+    if (p2.hourlyNotifEnabled) {
+      await scheduleHourlyNotifs();
+      startHourlyInterval(getProfile);
+    }
+  } catch {}
+
+  // Quote card
+  initQuoteCard($('#quote-card'));
+
+  // Wire habit add button
+  $('#hb-add-habit')?.addEventListener('click', () => openAddHabitModal(() => renderHabits()));
+
   document.addEventListener('lt:refresh-home', refreshHome);
+  document.addEventListener('lt:freeze-burn', () => {
+    toast('❄ Streak freeze used — missed yesterday\'s challenge');
+  });
   document.addEventListener('lt:penalty', (e) => {
     const banner = $('#penalty-banner');
     const text = $('#penalty-text');
@@ -295,7 +315,7 @@ function switchTab(tab) {
   if (tab === 'workout') {
     if (!workoutInited) { initWorkout(); workoutInited = true; }
   }
-  if (tab === 'hobbies') renderHobbies();
+  if (tab === 'hobbies') { renderHabits(); renderHobbies(); }
   if (tab === 'progress') renderProgress();
   if (tab === 'settings') refreshSettings();
 }
@@ -536,6 +556,7 @@ async function refreshSettings() {
   }
   refreshNotifSettings();
   refreshWaterNotifSettings();
+  refreshHourlyNotifSettings();
   refreshShredSettings();
 }
 
@@ -543,6 +564,7 @@ function wireSettings() {
   bindCalorieSetup(document, 'set');
   wireNotifSettings();
   wireWaterNotifSettings();
+  wireHourlyNotifSettings();
   wireShredSettings();
 
   async function saveSettingsProfileAndGoals() {
@@ -839,6 +861,38 @@ function wireWaterNotifSettings() {
       refreshWaterNotifSettings();
     });
   }
+}
+
+async function refreshHourlyNotifSettings() {
+  const p = await getProfile();
+  const btn = $('#set-hourly-toggle');
+  if (!btn) return;
+  const on = !!p.hourlyNotifEnabled;
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('on', on);
+}
+
+function wireHourlyNotifSettings() {
+  const btn = $('#set-hourly-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const perm = await getPermission();
+    const p = await getProfile();
+    if (perm !== 'granted' || !p.notificationsEnabled) {
+      toast('Enable reminders first', 'error');
+      return;
+    }
+    const next = !p.hourlyNotifEnabled;
+    await saveProfile({ hourlyNotifEnabled: next });
+    if (next) {
+      await scheduleHourlyNotifs();
+      startHourlyInterval(getProfile);
+      toast('⏰ Hourly nudges on', 'success');
+    } else {
+      toast('Hourly nudges off');
+    }
+    refreshHourlyNotifSettings();
+  });
 }
 
 async function refreshShredSettings() {

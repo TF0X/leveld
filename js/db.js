@@ -2,7 +2,7 @@
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@8.0.0/+esm';
 
 const DB_NAME = 'lifetracker';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORES = {
   profile: 'profile',
@@ -12,6 +12,8 @@ export const STORES = {
   bodyMetrics: 'bodyMetrics',
   dailyScores: 'dailyScores',
   personalRecords: 'personalRecords',
+  habits: 'habits',
+  habitLogs: 'habitLogs',
 };
 
 let _db;
@@ -40,6 +42,14 @@ export async function getDB() {
       }
       if (!db.objectStoreNames.contains(STORES.personalRecords)) {
         db.createObjectStore(STORES.personalRecords, { keyPath: 'exerciseName' });
+      }
+      if (!db.objectStoreNames.contains(STORES.habits)) {
+        db.createObjectStore(STORES.habits, { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(STORES.habitLogs)) {
+        const s = db.createObjectStore(STORES.habitLogs, { keyPath: 'id', autoIncrement: true });
+        s.createIndex('date', 'date');
+        s.createIndex('habitId', 'habitId');
       }
     },
   });
@@ -86,6 +96,8 @@ const DEFAULT_PROFILE = {
   waterDate: null,
   lastInsightWeek: null,
   insight: null,
+  hourlyNotifEnabled: false,
+  lastChallengePenaltyDate: null,
 };
 
 export async function getProfile() {

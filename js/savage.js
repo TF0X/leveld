@@ -80,18 +80,46 @@ export const SHRED_CHALLENGES = [
 ];
 
 const PENALTY_KEY = 'lastPenaltyDate';
+const CHALLENGE_PENALTY_KEY = 'lastChallengePenaltyDate';
 
 // Called once per day on app boot. Checks yesterday's activity and penalizes if shred mode on.
 export async function applyMidnightPenalty() {
   const p = await getProfile();
-  if (!p.shredMode) return;
   const today = todayStr();
-  if (p[PENALTY_KEY] === today) return; // already ran today — don't fire again on re-open
+
+  // ── Challenge failure penalty (all users) ──────────────────────────────
+  if (p[CHALLENGE_PENALTY_KEY] !== today) {
+    const yesterdayDate = new Date(Date.now() - 86400000);
+    const yesterday = dateStr(yesterdayDate);
+    const ch = p.dailyChallenge;
+    if (ch && ch.date === yesterday && !ch.done && !ch.skipped) {
+      if (p.shredMode) {
+        // Shred: deduct 25 XP
+        const newXP = Math.max(0, (p.totalXP || 0) - 25);
+        await saveProfile({ totalXP: newXP, [CHALLENGE_PENALTY_KEY]: today });
+        toast('💀 -25 XP — missed yesterday\'s challenge', 'error');
+        document.dispatchEvent(new CustomEvent('lt:penalty', { detail: { xp: 25, reason: 'Missed daily challenge' } }));
+      } else {
+        // Normal: burn a streak freeze token
+        await saveProfile({ [CHALLENGE_PENALTY_KEY]: today });
+        if ((p.freezeTokens || 0) > 0) {
+          await saveProfile({ freezeTokens: p.freezeTokens - 1 });
+          document.dispatchEvent(new Event('lt:freeze-burn'));
+        }
+      }
+    } else {
+      await saveProfile({ [CHALLENGE_PENALTY_KEY]: today });
+    }
+  }
+
+  // ── Shred Mode penalties (shred only) ──────────────────────────────────
+  if (!p.shredMode) return;
+  if (p[PENALTY_KEY] === today) return;
 
   const yesterdayDate = new Date(Date.now() - 86400000);
   const yesterday = dateStr(yesterdayDate);
 
-  // Case 1: Missed the entire yesterday — no log at all
+  // Case 1: Missed the entire yesterday
   const missedEntireDay = !p.lastLoggedDate ||
     (p.lastLoggedDate !== today && p.lastLoggedDate !== yesterday);
 
@@ -104,7 +132,7 @@ export async function applyMidnightPenalty() {
     return;
   }
 
-  // Case 2: Logged something yesterday or today — check yesterday's quest completion
+  // Case 2: Logged but missed quests
   const [meals, workouts] = await Promise.all([
     getByDate('meals', yesterday),
     getByDate('workouts', yesterday),

@@ -176,6 +176,8 @@
           </div>
         </div>
 
+        <div class="quote-card" id="quote-card"></div>
+
         <h3 class="sec-title">Today's challenge</h3>
         <div id="challenge-card" class="challenge-card">
           <div class="muted small">Loading…</div>
@@ -239,9 +241,16 @@
         <div id="meal-slots" class="meal-slots"></div>
       </section>
 
-      <!-- Hobbies -->
+      <!-- Hobbies / Lifestyle -->
       <section class="screen hidden" id="screen-hobbies">
-        <h3 class="sec-title">Today's hobbies</h3>
+        <h3 class="sec-title">Daily habits</h3>
+        <div id="habit-category-tabs" class="habit-cat-tabs"></div>
+        <div id="habit-grid" class="habit-grid-cards"></div>
+        <div style="display:flex;gap:8px;margin-bottom:4px;">
+          <button class="btn btn-ghost btn-block" id="hb-add-habit">+ Add habit</button>
+        </div>
+
+        <h3 class="sec-title">Hobbies</h3>
         <div id="hobby-tiles" class="hobby-tiles"></div>
         <button class="btn btn-ghost btn-block" id="hb-custom">+ Custom activity</button>
         <h3 class="sec-title">Activity log</h3>
@@ -394,6 +403,14 @@
               <option value="3">3 hours</option>
             </select>
           </label>
+        </div>
+
+        <div class="shred-toggle-row" id="hourly-notif-row" style="margin-top:10px;">
+          <div class="shred-toggle-info">
+            <span>⏰ Hourly motivation</span>
+            <span class="muted small">A nudge every hour, 7am–10pm</span>
+          </div>
+          <button class="toggle-btn" id="set-hourly-toggle" aria-pressed="false"></button>
         </div>
 
         <h3 class="sec-title">Shred Mode 🔥</h3>

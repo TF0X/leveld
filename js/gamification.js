@@ -157,12 +157,22 @@ export async function computeQuests() {
     getProfile(),
   ]);
   const totalProtein = meals.reduce((s, m) => s + (m.nutrition?.protein || 0), 0);
+
+  // Habit completions (lazy import to avoid circular dep)
+  let habitsDone = 0;
+  try {
+    const { getTodayHabitLogs } = await import('./habits.js');
+    const logs = await getTodayHabitLogs();
+    habitsDone = logs.length;
+  } catch {}
+
   const quests = [
-    { id: 'meals3', label: 'Log 3 meals', sub: `${meals.length}/3`, done: meals.length >= 3, progress: Math.min(3, meals.length), progressMax: 3, xp: 10 },
-    { id: 'workout', label: 'Complete a workout', sub: workouts.length ? 'done ✓' : 'not yet', done: workouts.length > 0, progress: workouts.length > 0 ? 1 : 0, progressMax: 1, xp: 30 },
-    { id: 'protein', label: 'Hit protein goal', sub: `${totalProtein}/${p.goals.protein}g`, done: totalProtein >= p.goals.protein, progress: Math.min(p.goals.protein, totalProtein), progressMax: p.goals.protein, xp: 25 },
-    { id: 'hobby', label: 'Log a hobby', sub: hobbies.length ? `${hobbies.length} logged ✓` : 'not yet', done: hobbies.length > 0, progress: hobbies.length > 0 ? 1 : 0, progressMax: 1, xp: 15 },
-    { id: 'weight', label: 'Log weight', sub: body.length ? 'done ✓' : 'not yet', done: body.length > 0, progress: body.length > 0 ? 1 : 0, progressMax: 1, xp: 5 },
+    { id: 'meals3',  label: 'Log 3 meals',         sub: `${meals.length}/3`,                      done: meals.length >= 3,           progress: Math.min(3, meals.length),          progressMax: 3,              xp: 10 },
+    { id: 'workout', label: 'Complete a workout',   sub: workouts.length ? 'done ✓' : 'not yet',   done: workouts.length > 0,         progress: workouts.length > 0 ? 1 : 0,        progressMax: 1,              xp: 30 },
+    { id: 'protein', label: 'Hit protein goal',     sub: `${totalProtein}/${p.goals.protein}g`,    done: totalProtein >= p.goals.protein, progress: Math.min(p.goals.protein, totalProtein), progressMax: p.goals.protein, xp: 25 },
+    { id: 'hobby',   label: 'Log a hobby',          sub: hobbies.length ? `${hobbies.length} logged ✓` : 'not yet', done: hobbies.length > 0, progress: hobbies.length > 0 ? 1 : 0, progressMax: 1, xp: 15 },
+    { id: 'weight',  label: 'Log weight',           sub: body.length ? 'done ✓' : 'not yet',       done: body.length > 0,             progress: body.length > 0 ? 1 : 0,            progressMax: 1,              xp: 5  },
+    { id: 'habits3', label: 'Complete 3 habits',    sub: `${habitsDone}/3`,                         done: habitsDone >= 3,             progress: Math.min(3, habitsDone),             progressMax: 3,              xp: 20 },
   ];
   return { quests, allDone: quests.every((q) => q.done) };
 }
@@ -185,6 +195,13 @@ export async function computeDailyScoreLocal() {
   if (workouts.length) activity += 30;
   if (hobbies.length) activity += 10;
   if (body.length) activity += 10;
+  // Habits bonus
+  try {
+    const { getTodayHabitLogs } = await import('./habits.js');
+    const habitLogs = await getTodayHabitLogs();
+    if (habitLogs.length >= 1) activity += 10;
+    if (habitLogs.length >= 3) activity += 5;
+  } catch {}
   activity = Math.min(100, activity);
   // Output
   const cals = meals.reduce((s, m) => s + (m.nutrition?.calories || 0), 0);
