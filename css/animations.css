@@ -1,50 +1,35 @@
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+.chip,
+.btn,
+.fab,
+.icon-button,
+.tab-bar__item,
+.list-row {
+  transition: transform var(--transition-fast), opacity var(--transition-base), background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 
-@keyframes slideUp {
-  from { transform: translateY(28px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+.chip:active,
+.btn:active,
+.icon-button:active,
+.tab-bar__item:active,
+.list-row:active {
+  transform: scale(var(--tap-scale));
 }
 
-@keyframes bounce-in {
-  0%   { transform: scale(0); }
-  55%  { transform: scale(1.22); }
-  100% { transform: scale(1); }
+.fab:active {
+  transform: translateX(-50%) scale(var(--fab-scale));
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.07); }
+.toast {
+  animation: toast-in 180ms ease-out;
 }
 
-@keyframes xp-float {
-  0%   { opacity: 0; transform: translate(-50%, 16px) scale(.75); }
-  18%  { opacity: 1; transform: translate(-50%, 0)    scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -130px) scale(1); }
-}
-
-@keyframes confetti-fall {
-  0%   { transform: translateY(0) rotate(0);      opacity: 1; }
-  100% { transform: translateY(110vh) rotate(760deg); opacity: 0; }
-}
-
-@keyframes toast-slide {
-  from { transform: translateY(22px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-
-@keyframes ring-glow {
-  0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
-  50%       { filter: drop-shadow(0 0 14px currentColor); }
-}
-
-@keyframes shimmer {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(100%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -1,472 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#00f59b" />
-  <meta name="description" content="leveld — gamified offline-first life tracker" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1220" />
+  <meta name="description" content="LevelD is an offline-first life tracker for meals, workouts, habits, hobbies, and recovery." />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/utilities.css" />
   <link rel="stylesheet" href="css/animations.css" />
-  <title>leveld</title>
+  <title>LevelD</title>
 </head>
 <body>
-  <!-- Onboarding -->
-  <div id="onboarding" class="screen onboarding hidden">
-    <div class="onboarding-inner">
-      <div class="brand">
-        <div class="brand-logo">Lv</div>
-        <h1>leveld</h1>
-        <p class="tag">Level up your life. Local first.</p>
-      </div>
-
-      <div class="ob-step" data-step="1">
-        <h2>What's your name?</h2>
-        <input id="ob-name" type="text" placeholder="Your name" autocomplete="off" />
-      </div>
-
-      <div class="ob-step hidden" data-step="2">
-        <h2>Gemini API key</h2>
-        <p class="muted">For meal AI &amp; weekly insights. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">Google AI Studio</a>.</p>
-        <input id="ob-key" type="password" placeholder="Paste key (optional, can add later)" autocomplete="off" />
-      </div>
-
-      <div class="ob-step hidden" data-step="3">
-        <h2>Body &amp; calories</h2>
-        <div class="goal-grid">
-          <label>Age <input id="ob-age" type="number" min="1" inputmode="numeric" /></label>
-          <label>Sex
-            <select id="ob-sex">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </label>
-          <label>Height (cm) <input id="ob-height" type="number" min="1" step="0.1" inputmode="decimal" /></label>
-          <label>Weight (kg) <input id="ob-weight" type="number" min="1" step="0.1" inputmode="decimal" /></label>
-          <label>Activity
-            <select id="ob-activity">
-              <option value="sedentary">Sedentary</option>
-              <option value="light">Light</option>
-              <option value="moderate" selected>Moderate</option>
-              <option value="very_active">Very active</option>
-              <option value="athlete">Athlete</option>
-            </select>
-          </label>
-          <label>Goal
-            <select id="ob-goal-preset">
-              <option value="lose">Lose</option>
-              <option value="maintain" selected>Maintain</option>
-              <option value="gain">Gain</option>
-            </select>
-          </label>
-          <label>Target calories <input id="ob-cal" type="number" value="2200" /></label>
-        </div>
-        <p class="muted small" id="ob-bmi">BMI: —</p>
-        <p class="muted small" id="ob-maintenance">Maintenance: —</p>
-      </div>
-
-      <div class="ob-step hidden" data-step="4">
-        <h2>Daily goals</h2>
-        <div class="goal-grid">
-          <label>Protein (g) <input id="ob-pro" type="number" value="150" /></label>
-          <label>Water (ml) <input id="ob-water" type="number" value="3000" /></label>
-          <label>Workouts/wk <input id="ob-workouts" type="number" value="4" /></label>
-          <label>Hobby min/day <input id="ob-hobby" type="number" value="60" /></label>
-        </div>
-      </div>
-
-      <div class="ob-step hidden" data-step="5">
-        <h2>Pick your hobbies</h2>
-        <div id="ob-hobby-grid" class="hobby-grid"></div>
-        <div class="custom-hobby-row">
-          <input id="ob-custom-hobby" type="text" placeholder="Custom hobby name" />
-          <input id="ob-custom-icon" type="text" placeholder="🎯" maxlength="2" />
-          <button id="ob-add-hobby" class="btn btn-ghost">Add</button>
-        </div>
-      </div>
-
-      <div class="ob-actions">
-        <button id="ob-back" class="btn btn-ghost hidden">Back</button>
-        <button id="ob-next" class="btn btn-primary">Next</button>
-      </div>
-      <div class="ob-dots">
-        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- App shell -->
-  <div id="app" class="hidden">
+  <div class="app-shell" id="app-shell">
     <header class="app-header">
-      <div class="hd-left">
-        <div class="lvl-badge" id="hd-level">1</div>
-        <div>
-          <div class="hd-rank" id="hd-rank">Beginner</div>
-          <div class="hd-xp-bar"><span id="hd-xp-fill"></span></div>
-          <div class="hd-xp-text" id="hd-xp-text">0 XP</div>
-        </div>
+      <button class="icon-button" id="menu-button" aria-label="Open app menu">
+        <i class="ti ti-menu-2" aria-hidden="true"></i>
+      </button>
+      <div class="header-brand">
+        <span class="header-brand__name">LevelD</span>
       </div>
-      <div class="hd-right">
-        <div class="streak" id="hd-streak"><span class="flame">🔥</span><span id="hd-streak-num">0</span></div>
-        <div class="freeze" id="hd-freeze" title="Streak freezes"><span>❄</span><span id="hd-freeze-num">0</span></div>
-      </div>
+      <button class="icon-button" id="notifications-button" aria-label="Open notification settings">
+        <i class="ti ti-bell" aria-hidden="true"></i>
+      </button>
     </header>
 
-    <main id="main">
-      <!-- Home -->
-      <section class="screen" id="screen-home">
-        <div id="backup-banner" class="banner hidden">
-          <span>You haven't backed up in a while.</span>
-          <button class="btn btn-sm" id="banner-export">Export now</button>
-        </div>
+    <main class="app-content" id="app-content" aria-live="polite"></main>
 
-        <div id="penalty-banner" class="penalty-banner hidden">
-          <span id="penalty-text">💀 XP penalty applied for yesterday</span>
-        </div>
+    <nav class="tab-bar" aria-label="Primary">
+      <button class="tab-bar__item tab-bar__item--active" data-tab="home" aria-label="Home">
+        <i class="ti ti-home" aria-hidden="true"></i>
+        <span>Home</span>
+      </button>
+      <button class="tab-bar__item" data-tab="insights" aria-label="Insights">
+        <i class="ti ti-chart-line" aria-hidden="true"></i>
+        <span>Insights</span>
+      </button>
+      <div class="tab-bar__fab-slot" aria-hidden="true"></div>
+      <button class="tab-bar__item" data-tab="goals" aria-label="Goals">
+        <i class="ti ti-target" aria-hidden="true"></i>
+        <span>Goals</span>
+      </button>
+      <button class="tab-bar__item" data-tab="profile" aria-label="Profile">
+        <i class="ti ti-user" aria-hidden="true"></i>
+        <span>Profile</span>
+      </button>
 
-        <div id="shred-badge" class="shred-badge hidden">🔥 SHRED MODE</div>
-
-        <div id="streak-strip" class="streak-strip"></div>
-
-        <div id="score-row" class="score-row"></div>
-
-        <div class="rings-row">
-          <div class="ring-card" id="rc-cal">
-            <svg class="ring" viewBox="0 0 120 120">
-              <circle class="ring-bg" cx="60" cy="60" r="52" />
-              <circle class="ring-fg" id="ring-cal" cx="60" cy="60" r="52" stroke="#4488ff" />
-            </svg>
-            <div class="ring-label">
-              <div class="ring-num" id="num-cal">0</div>
-              <div class="ring-pct" id="pct-cal">0%</div>
-              <div class="ring-cap">cal</div>
-            </div>
-          </div>
-          <div class="ring-card" id="rc-pro">
-            <svg class="ring" viewBox="0 0 120 120">
-              <circle class="ring-bg" cx="60" cy="60" r="52" />
-              <circle class="ring-fg" id="ring-pro" cx="60" cy="60" r="52" stroke="#00ff88" />
-            </svg>
-            <div class="ring-label">
-              <div class="ring-num" id="num-pro">0</div>
-              <div class="ring-pct" id="pct-pro">0%</div>
-              <div class="ring-cap">protein</div>
-            </div>
-          </div>
-          <div class="ring-card" id="rc-water">
-            <svg class="ring" viewBox="0 0 120 120">
-              <circle class="ring-bg" cx="60" cy="60" r="52" />
-              <circle class="ring-fg" id="ring-water" cx="60" cy="60" r="52" stroke="#00ccff" />
-            </svg>
-            <div class="ring-label">
-              <div class="ring-num" id="num-water">0</div>
-              <div class="ring-pct" id="pct-water">0%</div>
-              <div class="ring-cap">water</div>
-            </div>
-            <div class="water-controls">
-              <button class="btn btn-xs" data-water="-250">−250</button>
-              <button class="btn btn-xs" data-water="250">+250</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="quote-card" id="quote-card"></div>
-
-        <h3 class="sec-title">Today's challenge</h3>
-        <div id="challenge-card" class="challenge-card">
-          <div class="muted small">Loading…</div>
-        </div>
-
-        <h3 class="sec-title">Daily quests</h3>
-        <ul id="quest-list" class="quest-list"></ul>
-
-        <h3 class="sec-title">Quick log</h3>
-        <div class="quick-grid">
-          <button class="quick-btn" data-go="meals" data-accent="#00ff88"><span>🍳</span>Meal</button>
-          <button class="quick-btn" data-go="workout" data-accent="#4488ff"><span>💪</span>Workout</button>
-          <button class="quick-btn" data-go="hobbies" data-accent="#aa44ff"><span>🎨</span>Hobby</button>
-          <button class="quick-btn" id="quick-weight" data-accent="#ffaa00"><span>⚖️</span>Weight</button>
-        </div>
-      </section>
-
-      <!-- Workout -->
-      <section class="screen hidden" id="screen-workout">
-        <div class="row-between">
-          <input id="wo-name" type="text" placeholder="Workout name" />
-          <button class="btn btn-sm" id="wo-add-ex">+ Exercise</button>
-        </div>
-        <div id="wo-exercises" class="ex-list"></div>
-        <div class="wo-meta">
-          <div class="meta-card">
-            <div class="meta-num" id="wo-volume">0</div>
-            <div class="meta-cap">total kg</div>
-          </div>
-          <div class="meta-card">
-            <div class="meta-num" id="wo-timer">0:00</div>
-            <div class="meta-cap">rest</div>
-          </div>
-          <div class="rest-btns">
-            <button class="btn btn-xs" data-rest="60">60s</button>
-            <button class="btn btn-xs" data-rest="90">90s</button>
-            <button class="btn btn-xs" data-rest="120">120s</button>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-block" id="wo-save">Save Workout</button>
-      </section>
-
-      <!-- Meals -->
-      <section class="screen hidden" id="screen-meals">
-        <div class="macro-strip">
-          <div class="ms-block">
-            <div class="ms-label">🔥 <span id="mr-cal">0</span> kcal</div>
-            <div class="ms-bar"><div class="ms-fill" id="ms-cal-fill" style="background:var(--blue)"></div></div>
-            <div class="ms-pct muted small" id="ms-cal-pct">0%</div>
-          </div>
-          <div class="ms-divider"></div>
-          <div class="ms-block">
-            <div class="ms-label">🥩 <span id="mr-pro">0</span>g P</div>
-            <div class="ms-bar"><div class="ms-fill" id="ms-pro-fill" style="background:var(--green)"></div></div>
-            <div class="ms-pct muted small" id="ms-pro-pct">0%</div>
-          </div>
-          <div class="ms-divider"></div>
-          <div class="ms-plain muted small">C <span id="mr-carbs">0</span>g</div>
-          <div class="ms-plain muted small">F <span id="mr-fat">0</span>g</div>
-        </div>
-        <div id="meal-slots" class="meal-slots"></div>
-      </section>
-
-      <!-- Hobbies / Lifestyle -->
-      <section class="screen hidden" id="screen-hobbies">
-        <h3 class="sec-title">Daily habits</h3>
-        <div id="habit-category-tabs" class="habit-cat-tabs"></div>
-        <div id="habit-grid" class="habit-grid-cards"></div>
-        <div style="display:flex;gap:8px;margin-bottom:4px;">
-          <button class="btn btn-ghost btn-block" id="hb-add-habit">+ Add habit</button>
-        </div>
-
-        <h3 class="sec-title">Hobbies</h3>
-        <div id="hobby-tiles" class="hobby-tiles"></div>
-        <button class="btn btn-ghost btn-block" id="hb-custom">+ Custom activity</button>
-        <h3 class="sec-title">Activity log</h3>
-        <div id="hb-log" class="log-list"></div>
-      </section>
-
-      <!-- Progress -->
-      <section class="screen hidden" id="screen-progress">
-        <div class="range-tabs" id="range-tabs">
-          <button data-range="7" class="active">7D</button>
-          <button data-range="30">30D</button>
-          <button data-range="90">90D</button>
-          <button data-range="all">All</button>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
-        <div id="day-detail" class="day-detail hidden"></div>
-
-        <h3 class="sec-title">Activity heatmap (90d)</h3>
-        <div id="heatmap" class="heatmap"></div>
-
-        <h3 class="sec-title">Skills</h3>
-        <div id="skill-bars" class="skill-bars"></div>
-
-        <h3 class="sec-title">Today's macros</h3>
-        <div class="donut-wrap">
-          <div class="chart-wrap" style="height:200px;position:relative;">
-            <canvas id="chart-donut"></canvas>
-            <div id="donut-center" class="donut-center"><div class="dn-num">—</div><div class="dn-cap">no meals</div></div>
-          </div>
-        </div>
-
-        <h3 class="sec-title">Muscle volume (30d)</h3>
-        <div class="chart-wrap" style="height:240px;position:relative;">
-          <canvas id="chart-muscle"></canvas>
-          <div id="muscle-empty" class="muted small chart-empty hidden">No completed lifts in the last 30 days.</div>
-        </div>
-
-        <div class="insight-card">
-          <div class="row-between">
-            <h3>Weekly insight</h3>
-            <button class="btn btn-xs" id="refresh-insight">Refresh</button>
-          </div>
-          <p id="insight-text" class="muted">No insight yet — log a few days then refresh.</p>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-num" id="st-meals">0</div><div class="stat-cap">meals</div></div>
-          <div class="stat-card"><div class="stat-num" id="st-workouts">0</div><div class="stat-cap">workouts</div></div>
-          <div class="stat-card"><div class="stat-num" id="st-volume">0</div><div class="stat-cap">total kg</div></div>
-          <div class="stat-card"><div class="stat-num" id="st-hobby">0</div><div class="stat-cap">hobby min</div></div>
-          <div class="stat-card"><div class="stat-num" id="st-streak">0</div><div class="stat-cap">best streak</div></div>
-          <div class="stat-card"><div class="stat-num" id="st-xp">0</div><div class="stat-cap">total XP</div></div>
-        </div>
-
-        <h3 class="sec-title">Personal records</h3>
-        <div id="pr-table" class="pr-table"></div>
-
-        <h3 class="sec-title">Achievements</h3>
-        <div id="ach-grid" class="ach-grid"></div>
-
-        <h3 class="sec-title">Bodyweight</h3>
-        <div class="chart-wrap"><canvas id="chart-bw"></canvas></div>
-      </section>
-
-      <!-- Settings -->
-      <section class="screen hidden" id="screen-settings">
-        <h3 class="sec-title">Profile</h3>
-        <label class="lbl">Name <input id="set-name" type="text" /></label>
-        <label class="lbl">Diet style / meal context <input id="set-diet" type="text" placeholder="Indian vegetarian, eggitarian, Jain, high-protein, etc." /></label>
-        <button class="btn btn-sm" id="set-save-profile">Save profile</button>
-
-        <h3 class="sec-title">Gemini API key</h3>
-        <p class="muted small">Stored only in your browser (IndexedDB). Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener">aistudio.google.com/apikey</a>.</p>
-        <label class="lbl">Key <input id="set-key" type="password" placeholder="AIza..." /></label>
-        <button class="btn btn-sm" id="set-save-key">Save key</button>
-
-        <h3 class="sec-title">Body &amp; calories</h3>
-        <div class="goal-grid">
-          <label>Age <input id="set-age" type="number" min="1" inputmode="numeric" /></label>
-          <label>Sex
-            <select id="set-sex">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </label>
-          <label>Height (cm) <input id="set-height" type="number" min="1" step="0.1" inputmode="decimal" /></label>
-          <label>Weight (kg) <input id="set-weight" type="number" min="1" step="0.1" inputmode="decimal" /></label>
-          <label>Activity
-            <select id="set-activity">
-              <option value="sedentary">Sedentary</option>
-              <option value="light">Light</option>
-              <option value="moderate">Moderate</option>
-              <option value="very_active">Very active</option>
-              <option value="athlete">Athlete</option>
-            </select>
-          </label>
-          <label>Goal
-            <select id="set-goal-preset">
-              <option value="lose">Lose</option>
-              <option value="maintain">Maintain</option>
-              <option value="gain">Gain</option>
-            </select>
-          </label>
-          <label>Target calories <input id="set-cal" type="number" /></label>
-        </div>
-        <p class="muted small" id="set-bmi">BMI: —</p>
-        <p class="muted small" id="set-maintenance">Maintenance: —</p>
-
-        <h3 class="sec-title">Daily goals</h3>
-        <div class="goal-grid">
-          <label>Protein (g) <input id="set-pro" type="number" /></label>
-          <label>Water (ml) <input id="set-water" type="number" /></label>
-          <label>Workouts/wk <input id="set-workouts" type="number" /></label>
-          <label>Hobby min/day <input id="set-hobby" type="number" /></label>
-        </div>
-        <button class="btn btn-sm" id="set-save-goals">Save goals</button>
-
-        <h3 class="sec-title">Hobbies</h3>
-        <div id="set-hobbies" class="hobby-grid"></div>
-        <div class="custom-hobby-row">
-          <input id="set-new-hobby" type="text" placeholder="Custom hobby" />
-          <input id="set-new-icon" type="text" placeholder="🎯" maxlength="2" />
-          <button class="btn btn-ghost" id="set-add-hobby">Add</button>
-        </div>
-
-        <h3 class="sec-title">Notifications</h3>
-        <p class="muted small">Daily reminder to log. True scheduled push needs a server — this works best when you keep the PWA installed (Add to Home Screen). On iOS scheduled reminders are limited.</p>
-        <div class="row-wrap" style="align-items:center;">
-          <button class="btn btn-sm" id="set-notif-toggle">Enable reminders</button>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);">
-            Hour
-            <input id="set-notif-hour" type="number" min="0" max="23" value="19" style="width:70px;font-family:var(--font-mono);" />
-          </label>
-          <span class="muted small" id="notif-status"></span>
-        </div>
-
-        <div class="shred-toggle-row" id="water-reminder-row" style="margin-top:10px;">
-          <div class="shred-toggle-info">
-            <span>💧 Water reminders</span>
-            <span class="muted small" id="water-reminder-sub">Nudges to drink — 8am to 9pm</span>
-          </div>
-          <button class="toggle-btn" id="set-water-toggle" aria-pressed="false"></button>
-        </div>
-        <div id="water-interval-row" class="hidden" style="padding:2px 4px 10px;">
-          <label class="muted small" style="display:flex;align-items:center;gap:8px;">
-            Remind every
-            <select id="set-water-interval" style="background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--text);padding:4px 10px;border-radius:8px;font-size:13px;">
-              <option value="1">1 hour</option>
-              <option value="2" selected>2 hours</option>
-              <option value="3">3 hours</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="shred-toggle-row" id="hourly-notif-row" style="margin-top:10px;">
-          <div class="shred-toggle-info">
-            <span>⏰ Hourly motivation</span>
-            <span class="muted small">A nudge every hour, 7am–10pm</span>
-          </div>
-          <button class="toggle-btn" id="set-hourly-toggle" aria-pressed="false"></button>
-        </div>
-
-        <h3 class="sec-title">Shred Mode 🔥</h3>
-        <p class="muted small">Cuts focus, XP penalties for missed days/quests, hourly sarcastic push notifications, and brutal random challenges. Not for the weak.</p>
-        <div class="shred-toggle-row">
-          <div class="shred-toggle-info">
-            <span id="shred-mode-label">Shred Mode</span>
-            <span class="muted small" id="shred-mode-sub">Off</span>
-          </div>
-          <button class="toggle-btn" id="set-shred-toggle" aria-pressed="false"></button>
-        </div>
-        <div id="shred-savage-row" class="shred-savage-row hidden">
-          <div class="shred-toggle-info">
-            <span>Savage hourly notifications</span>
-            <span class="muted small">Sarcastic push every hour</span>
-          </div>
-          <button class="toggle-btn" id="set-savage-toggle" aria-pressed="false"></button>
-        </div>
-        <p class="muted small hidden" id="shred-notif-hint">Enable reminders above to unlock savage notifications.</p>
-
-        <h3 class="sec-title">Data</h3>
-        <div class="row-wrap">
-          <button class="btn btn-sm" id="set-export">Export JSON</button>
-          <label class="btn btn-sm file-btn">
-            Import JSON
-            <input id="set-import" type="file" accept="application/json" hidden />
-          </label>
-          <button class="btn btn-sm btn-danger" id="set-clear">Clear all data</button>
-        </div>
-        <p class="muted small" id="last-backup-text"></p>
-
-        <h3 class="sec-title">About</h3>
-        <p class="muted small">leveld · v1.0 · Offline first · No account · Data stays on this device.</p>
-      </section>
-    </main>
-
-    <button id="fab-add" class="fab" aria-label="Add anything">
-      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-    </button>
-
-    <nav class="tab-bar">
-      <button data-tab="home" class="active"><span>🏠</span>Home</button>
-      <button data-tab="workout"><span>💪</span>Workout</button>
-      <button data-tab="meals"><span>🍳</span>Meals</button>
-      <button data-tab="hobbies"><span>🎨</span>Hobbies</button>
-      <button data-tab="progress"><span>📈</span>Progress</button>
-      <button data-tab="settings"><span>⚙️</span></button>
+      <button class="fab" id="fab-add" aria-label="Quick log">
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
     </nav>
   </div>
 
-  <!-- Modal root -->
+  <div id="sheet-root"></div>
   <div id="modal-root"></div>
   <div id="toast-root"></div>
-  <div id="overlay-root"></div>
 
-  <!-- Libs -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
