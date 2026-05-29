@@ -205,27 +205,36 @@ function QuestList({ habits }) {
   )
 }
 
+const TOAST_CONFIG = {
+  levelup:   { icon: '⭐', label: 'LEVEL UP!',  border: 'border-amber-600',  btn: 'rpg-btn-gold' },
+  milestone: { icon: '⚔️', label: 'MILESTONE!', border: 'border-violet-600', btn: 'rpg-btn-primary' },
+  badge:     { icon: '🏆', label: 'BADGE EARNED!', border: 'border-emerald-600', btn: 'rpg-btn-secondary' },
+}
+
 function NotificationToast({ notifications, onDismiss }) {
   if (!notifications?.length) return null
   const n = notifications[0]
+  const cfg = TOAST_CONFIG[n.type] || TOAST_CONFIG.levelup
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-80">
-      <div className="rpg-panel p-4 border border-amber-600 text-center animate-bounce">
-        <div className="font-pixel text-xs text-amber-400 mb-1">⭐ LEVEL UP!</div>
-        <div className="text-xs text-slate-300">{n.message}</div>
-        <button className="rpg-btn-gold mt-3 text-xs" onClick={() => onDismiss(n.id)}>EPIC!</button>
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-80 px-4">
+      <div className={`rpg-panel p-4 border ${cfg.border} text-center`}>
+        <div className="text-2xl mb-1">{cfg.icon}</div>
+        <div className="font-pixel text-xs text-amber-400 mb-2">{cfg.label}</div>
+        <div className="text-xs text-slate-300 leading-relaxed">{n.message}</div>
+        <button className={`${cfg.btn} mt-3 text-xs`} onClick={() => onDismiss(n.id)}>Got it!</button>
       </div>
     </div>
   )
 }
 
 export default function Dashboard() {
-  const { character, habits, notifications, clearNotification, openaiKey, updateStreak } = useStore()
+  const { character, habits, notifications, clearNotification, openaiKey, updateStreak, checkMilestones, nutrition } = useStore()
   const [coachMsg, setCoachMsg] = useState('')
   const season = getSeason()
 
   useEffect(() => {
     updateStreak()
+    checkMilestones()
   }, [])
 
   useEffect(() => {
@@ -235,7 +244,7 @@ export default function Dashboard() {
     const cached = localStorage.getItem(cacheKey)
     if (cached) { setCoachMsg(cached); return }
     const habitsCompleted = habits.filter(h => h.completions?.[today]).length
-    getDailyCoachMessage(openaiKey, { character, stats: { habitsCompleted } })
+    getDailyCoachMessage(openaiKey, { character, stats: { habitsCompleted }, nutrition })
       .then(msg => { setCoachMsg(msg); localStorage.setItem(cacheKey, msg) })
       .catch(() => {})
   }, [openaiKey, character.class])

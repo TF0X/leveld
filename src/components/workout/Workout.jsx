@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import useStore from '../../store/useStore'
+import { PROGRESSION_RULES } from '../../data/workoutTemplates'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, CartesianGrid, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis,
+  LineChart, Line, CartesianGrid,
 } from 'recharts'
 
 const EXERCISES = [
@@ -184,8 +184,58 @@ function WorkoutGraphs({ workoutLogs }) {
   )
 }
 
+function WorkoutProgramCard({ program }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!program) return null
+  return (
+    <div className="rpg-panel p-4 border border-violet-800">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-pixel text-xs text-violet-400 mb-1" style={{ fontSize: '10px' }}>YOUR PROGRAM</div>
+          <div className="text-sm text-slate-200">{program.name}</div>
+          <div className="text-xs text-slate-500">{program.level} • {program.daysPerWeek} days/week • {program.equipment}</div>
+        </div>
+        <button className="text-xs text-slate-500 hover:text-slate-300" onClick={() => setExpanded(v => !v)}>
+          {expanded ? '▲ Hide' : '▼ View'}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-4 space-y-4">
+          {program.days.map((day, i) => (
+            <div key={i} className="border-t border-slate-800 pt-3">
+              <div className="font-pixel text-xs text-amber-400 mb-2" style={{ fontSize: '9px' }}>{day.label}</div>
+              {day.exercises.length === 0 ? (
+                <div className="text-xs text-slate-600">Rest / Mobility</div>
+              ) : (
+                <div className="space-y-1">
+                  {day.exercises.map((ex, j) => (
+                    <div key={j} className="flex justify-between text-xs">
+                      <span className="text-slate-300">{ex.name}</span>
+                      <span className="text-slate-500">{ex.sets}×{ex.reps}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {program.cardioNote && (
+            <div className="bg-rpg-bg rounded p-3 text-xs text-amber-400 border-l-2 border-amber-700">
+              🏃 {program.cardioNote}
+            </div>
+          )}
+          <div className="border-t border-slate-800 pt-3">
+            <div className="font-pixel text-xs text-slate-500 mb-2" style={{ fontSize: '9px' }}>PROGRESSION RULES</div>
+            {PROGRESSION_RULES.map((r, i) => <div key={i} className="text-xs text-slate-500">• {r}</div>)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Workout() {
-  const { workoutLogs, logWorkout, gainXP } = useStore()
+  const { workoutLogs, logWorkout, gainXP, nutrition } = useStore()
+  const program = nutrition?.workoutProgramData || null
   const [active, setActive] = useState(false)
   const [exercises, setExercises] = useState([])
   const [duration, setDuration] = useState('')
@@ -248,6 +298,9 @@ export default function Workout() {
           )}
         </div>
       </div>
+
+      {/* Active program card */}
+      {program && <WorkoutProgramCard program={program} />}
 
       {/* Today's completed workout summary */}
       {todayLogs.length > 0 && !active && (

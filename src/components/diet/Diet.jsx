@@ -1,9 +1,11 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import useStore from '../../store/useStore'
 import { analyzeFoodPhoto } from '../../utils/ai'
+import { searchFoods, FOOD_DB } from '../../data/foods'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const MACRO_COLORS = { protein: '#3b82f6', carbs: '#f59e0b', fat: '#ef4444' }
+const EMPTY_FORM = { name: '', calories: '', protein: '', carbs: '', fat: '' }
 
 function MacroPie({ protein, carbs, fat }) {
   const data = [
@@ -11,35 +13,140 @@ function MacroPie({ protein, carbs, fat }) {
     { name: 'Carbs', value: carbs },
     { name: 'Fat', value: fat },
   ].filter(d => d.value > 0)
-
   if (!data.length) return null
-
   return (
     <ResponsiveContainer width="100%" height={160}>
       <PieChart>
         <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label={({ name, value }) => `${name}: ${value}g`}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={Object.values(MACRO_COLORS)[i]} />
-          ))}
+          {data.map((_, i) => <Cell key={i} fill={Object.values(MACRO_COLORS)[i]} />)}
         </Pie>
-        <Tooltip formatter={(v) => `${v}g`} contentStyle={{ background: '#1a1a2e', border: '1px solid #2a2a4a', fontSize: '11px' }} />
+        <Tooltip formatter={v => `${v}g`} contentStyle={{ background: '#1a1a2e', border: '1px solid #2a2a4a', fontSize: '11px' }} />
       </PieChart>
     </ResponsiveContainer>
   )
 }
 
-const EMPTY_FORM = { name: '', calories: '', protein: '', carbs: '', fat: '' }
+function TargetBar({ label, current, target, color }) {
+  if (!target) return null
+  const pct = Math.min(100, Math.round((current / target) * 100))
+  const over = current > target
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-slate-400">{label}</span>
+        <span style={{ color: over ? '#ef4444' : color }}>{current} / {target}{label === 'Calories' ? ' kcal' : 'g'}</span>
+      </div>
+      <div className="stat-bar">
+        <div className="stat-bar-fill" style={{ width: `${pct}%`, background: over ? '#ef4444' : color, transition: 'width 0.5s' }} />
+      </div>
+    </div>
+  )
+}
+
+function FoodSearch({ onSelect }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (query.length < 2) { setResults([]); setOpen(false); return }
+    const found = searchFoods(query)
+    setResults(found)
+    setOpen(found.length > 0)
+  }, [query])
+
+  const pick = (food) => {
+    onSelect(food)
+    setQuery('')
+    setResults([])
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <label className="text-xs text-slate-400 block mb-1">Quick-fill from food database</label>
+      <input
+        type="text"
+        placeholder="Search: chicken, paneer, rice, oats..."
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onFocus={() => query.length >= 2 && setOpen(true)}
+      />
+      {open && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-rpg-panel border border-rpg-border rounded shadow-xl max-h-56 overflow-y-auto">
+          {results.map((food, i) => (
+            <button
+              key={i}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-violet-900 border-b border-slate-800 last:border-0"
+              onClick={() => pick(food)}
+            >
+              <div className="text-slate-200">{food.name}</div>
+              <div className="text-slate-500 mt-0.5">
+                {food.calories} kcal · P:{food.protein}g · C:{food.carbs}g · F:{food.fat}g
+                <span className="ml-2 text-violet-400">[{food.category}]</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeightLogger({ weightLogs, onLog }) {
+  const [w, setW] = useState('')
+  const today = new Date().toISOString().split('T')[0]
+  const todayLog = weightLogs.find(l => l.date === today)
+  const last7 = weightLogs.slice(-7)
+
+  return (
+    <div className="rpg-panel p-4">
+      <div className="font-pixel text-xs text-slate-400 mb-3">⚖️ WEIGHT LOG</div>
+      {todayLog ? (
+        <div className="text-xs text-green-400">✓ Today: {todayLog.weight} kg</div>
+      ) : (
+        <div className="flex gap-2">
+          <input type="number" placeholder="kg" value={w} onChange={e => setW(e.target.value)} className="flex-1" step="0.1" />
+          <button className="rpg-btn-secondary px-3 text-xs" onClick={() => { if (w) { onLog(parseFloat(w)); setW('') } }}>Log</button>
+        </div>
+      )}
+      {last7.length > 1 && (
+        <div className="mt-3 flex gap-1 items-end h-8">
+          {last7.map((l, i) => {
+            const minW = Math.min(...last7.map(x => x.weight))
+            const maxW = Math.max(...last7.map(x => x.weight))
+            const range = maxW - minW || 1
+            const pct = ((l.weight - minW) / range) * 80 + 20
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                <div className="w-full rounded-t-sm bg-violet-600" style={{ height: `${pct}%` }} title={`${l.date}: ${l.weight}kg`} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {last7.length >= 2 && (
+        <div className="text-xs text-slate-500 mt-2">
+          {last7[last7.length - 1].weight < last7[0].weight
+            ? <span className="text-green-400">↓ {(last7[0].weight - last7[last7.length - 1].weight).toFixed(1)} kg lost</span>
+            : <span className="text-slate-400">↔ Weight stable</span>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Diet() {
-  const { dietLogs, logDiet, gainXP, openaiKey } = useStore()
+  const { dietLogs, logDiet, gainXP, openaiKey, nutrition, setWater, logWeight, weightLogs, character } = useStore()
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = dietLogs.filter(l => l.date.startsWith(today))
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [analyzing, setAnalyzing] = useState(false)
-  const [water, setWater] = useState(0)
   const [showMacros, setShowMacros] = useState(true)
   const fileRef = useRef()
+
+  const water = nutrition.waterDate === today ? (nutrition.waterGlasses || 0) : 0
 
   const totals = todayLogs.reduce((acc, l) => ({
     calories: acc.calories + (l.calories || 0),
@@ -47,6 +154,11 @@ export default function Diet() {
     carbs: acc.carbs + (l.carbs || 0),
     fat: acc.fat + (l.fat || 0),
   }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+
+  const handleFoodSelect = (food) => {
+    setForm({ name: food.name, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat })
+    setShowMacros(true)
+  }
 
   const handlePhoto = async (e) => {
     const file = e.target.files?.[0]
@@ -59,11 +171,8 @@ export default function Diet() {
         const result = await analyzeFoodPhoto(openaiKey, base64)
         setForm({ name: result.name, calories: result.calories, protein: result.protein_g, carbs: result.carbs_g, fat: result.fat_g })
         setShowMacros(true)
-      } catch {
-        alert('Could not analyze image. Try entering manually.')
-      } finally {
-        setAnalyzing(false)
-      }
+      } catch { alert('Could not analyze image. Try manual entry.') }
+      finally { setAnalyzing(false) }
     }
     reader.readAsDataURL(file)
   }
@@ -81,12 +190,31 @@ export default function Diet() {
     setForm(EMPTY_FORM)
   }
 
+  const calorieTarget = nutrition.dailyCalories || 0
+  const proteinTarget = nutrition.proteinTarget || 0
+
   return (
     <div className="space-y-4 pb-6">
       <h1 className="font-pixel text-xs text-amber-400">DIET LOG</h1>
 
-      {/* Daily Summary */}
-      {todayLogs.length > 0 && (
+      {/* Calorie & Macro Targets */}
+      {calorieTarget > 0 && (
+        <div className="rpg-panel p-4 space-y-3">
+          <div className="font-pixel text-xs text-violet-400 mb-1">TODAY'S TARGETS</div>
+          <TargetBar label="Calories" current={totals.calories} target={calorieTarget} color="#f59e0b" />
+          <TargetBar label="Protein" current={totals.protein} target={proteinTarget} color="#3b82f6" />
+          {nutrition.carbTarget > 0 && <TargetBar label="Carbs" current={totals.carbs} target={nutrition.carbTarget} color="#10b981" />}
+          {nutrition.fatTarget > 0 && <TargetBar label="Fat" current={totals.fat} target={nutrition.fatTarget} color="#ef4444" />}
+          <div className="text-xs text-slate-500 pt-1">
+            {calorieTarget - totals.calories > 0
+              ? `${calorieTarget - totals.calories} kcal remaining`
+              : <span className="text-amber-400">Daily target reached!</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Daily summary (macros pie) */}
+      {todayLogs.length > 0 && calorieTarget === 0 && (
         <div className="rpg-panel p-4">
           <div className="font-pixel text-xs text-slate-400 mb-3">TODAY'S NUTRITION</div>
           <div className="grid grid-cols-2 gap-3 mb-3">
@@ -112,19 +240,17 @@ export default function Diet() {
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
             {Array.from({ length: 8 }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setWater(i < water ? i : i + 1)}
+              <button key={i} onClick={() => setWater(i < water ? i : i + 1)}
                 className={`w-6 h-8 rounded text-xs border ${i < water ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-700'}`}
-                title={`${(i + 1) * 250}ml`}
-              >
-                💧
-              </button>
+                title={`${(i + 1) * 250}ml`}>💧</button>
             ))}
           </div>
           <span className="text-xs text-blue-400">{water * 250}ml / 2000ml</span>
         </div>
       </div>
+
+      {/* Weight Logger */}
+      <WeightLogger weightLogs={weightLogs || []} onLog={logWeight} />
 
       {/* Log Entry */}
       <div className="rpg-panel p-4 space-y-3">
@@ -141,31 +267,19 @@ export default function Diet() {
         {openaiKey && (
           <>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-            <button
-              className="rpg-btn-secondary w-full text-xs"
-              onClick={() => fileRef.current.click()}
-              disabled={analyzing}
-            >
+            <button className="rpg-btn-secondary w-full text-xs" onClick={() => fileRef.current.click()} disabled={analyzing}>
               {analyzing ? '🔍 Analyzing...' : '📷 Analyze Food Photo (AI)'}
             </button>
           </>
         )}
 
-        <input
-          type="text"
-          placeholder="Food name (e.g. Dal rice, Banana)"
-          value={form.name}
-          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-        />
+        {/* Food database search */}
+        <FoodSearch onSelect={handleFoodSelect} />
 
+        <input type="text" placeholder="Food name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
         <div>
-          <label className="text-xs text-slate-500">Calories (kcal) — optional</label>
-          <input
-            type="number"
-            placeholder="e.g. 450"
-            value={form.calories}
-            onChange={e => setForm(f => ({ ...f, calories: e.target.value }))}
-          />
+          <label className="text-xs text-slate-500">Calories (kcal)</label>
+          <input type="number" placeholder="e.g. 450" value={form.calories} onChange={e => setForm(f => ({ ...f, calories: e.target.value }))} />
         </div>
 
         {showMacros && (
@@ -185,18 +299,12 @@ export default function Diet() {
           </div>
         )}
 
-        {!showMacros && (
-          <div className="text-xs text-slate-600 bg-slate-900 rounded p-2">
-            Macros off — only name and calories will be saved.
-          </div>
-        )}
+        {!showMacros && <div className="text-xs text-slate-600 bg-slate-900 rounded p-2">Macros off — only name and calories saved.</div>}
 
-        <button className="rpg-btn-primary w-full" onClick={handleLog} disabled={!form.name}>
-          Log Meal +10 XP
-        </button>
+        <button className="rpg-btn-primary w-full" onClick={handleLog} disabled={!form.name}>Log Meal +10 XP</button>
       </div>
 
-      {/* Recent logs */}
+      {/* Today's meals */}
       {todayLogs.length > 0 && (
         <div className="rpg-panel p-4">
           <div className="font-pixel text-xs text-slate-400 mb-3">TODAY'S MEALS</div>
@@ -208,7 +316,16 @@ export default function Diet() {
                 {l.protein > 0 && <span className="text-blue-400">{l.protein}g P</span>}
               </div>
             ))}
+            {calorieTarget > 0 && (
+              <div className="border-t border-slate-700 pt-2 flex justify-between text-xs">
+                <span className="text-slate-500">Total</span>
+                <span className="text-amber-400">{totals.calories} / {calorieTarget} kcal</span>
+              </div>
+            )}
           </div>
+          {(totals.protein > 0 || totals.carbs > 0 || totals.fat > 0) && (
+            <MacroPie protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
+          )}
         </div>
       )}
     </div>

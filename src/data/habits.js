@@ -1,44 +1,68 @@
 export const GOAL_HABITS = {
   'Lose weight': [
-    { name: 'Log meals daily', frequency: 'daily', type: 'positive' },
-    { name: '30 min workout', frequency: 'daily', type: 'positive' },
-    { name: 'No junk food after 8pm', frequency: 'daily', type: 'positive' },
+    // From Rohan Gupta's 2-week habit starter + Fat Loss Fuel System
+    { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: '+2000 steps above baseline', frequency: 'daily', type: 'positive', category: 'movement' },
+    { name: 'Hit protein target today', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: '20-25 min cardio after workout', frequency: 'daily', type: 'positive', category: 'training' },
+    { name: 'Replace 2 sugary drinks with water', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: 'Log all meals in diet tracker', frequency: 'daily', type: 'positive', category: 'tracking' },
   ],
   'Build muscle': [
-    { name: 'Strength training session', frequency: 'daily', type: 'positive' },
-    { name: 'Hit protein goal', frequency: 'daily', type: 'positive' },
-    { name: 'Track sets & reps', frequency: 'daily', type: 'positive' },
+    { name: 'Hit protein target today', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: 'Strength training session', frequency: 'daily', type: 'positive', category: 'training' },
+    { name: 'Track sets, reps & weights', frequency: 'daily', type: 'positive', category: 'tracking' },
+    { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: 'Eat calorie surplus today', frequency: 'daily', type: 'positive', category: 'nutrition' },
   ],
   'Fix sleep': [
-    { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive' },
-    { name: 'No screens 30 min before bed', frequency: 'daily', type: 'positive' },
-    { name: 'Wake up on first alarm', frequency: 'daily', type: 'positive' },
+    { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: 'No screens 90 min before bed', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: 'Wake up on first alarm', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: 'Same wake time every day', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: '10 min wind-down routine', frequency: 'daily', type: 'positive', category: 'recovery' },
   ],
   'Quit a bad habit': [
-    { name: 'Resist the urge', frequency: 'daily', type: 'positive' },
-    { name: 'Log cravings honestly', frequency: 'daily', type: 'positive' },
+    { name: 'Resist the urge (log in cravings)', frequency: 'daily', type: 'positive', category: 'discipline' },
+    { name: 'Log cravings honestly', frequency: 'daily', type: 'positive', category: 'tracking' },
+    { name: 'Replace with positive alternative', frequency: 'daily', type: 'positive', category: 'discipline' },
   ],
   'Eat better': [
-    { name: 'Eat vegetables with every meal', frequency: 'daily', type: 'positive' },
-    { name: 'Drink 2L water', frequency: 'daily', type: 'positive' },
-    { name: 'No processed food', frequency: 'daily', type: 'positive' },
+    { name: 'Hit protein target today', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: 'Drink 8 glasses of water', frequency: 'daily', type: 'positive', category: 'gut' },
+    { name: 'Vegetables with every meal', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: 'No ultra-processed food today', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    { name: 'Eat probiotic food (dahi/kefir)', frequency: 'daily', type: 'positive', category: 'gut' },
   ],
   'Manage stress': [
-    { name: '10 min meditation', frequency: 'daily', type: 'positive' },
-    { name: 'Evening walk', frequency: 'daily', type: 'positive' },
-    { name: 'Journaling', frequency: 'daily', type: 'positive' },
+    { name: '10 min meditation', frequency: 'daily', type: 'positive', category: 'mental' },
+    { name: 'Evening walk (10-20 min)', frequency: 'daily', type: 'positive', category: 'movement' },
+    { name: 'Journaling', frequency: 'daily', type: 'positive', category: 'mental' },
+    { name: 'Daily reset — breathwork or stretching', frequency: 'daily', type: 'positive', category: 'recovery' },
   ],
   'Build a morning routine': [
-    { name: 'Complete morning routine', frequency: 'daily', type: 'positive' },
-    { name: 'No phone first 30 min', frequency: 'daily', type: 'positive' },
-    { name: 'Cold shower', frequency: 'daily', type: 'positive' },
+    { name: 'Complete morning routine', frequency: 'daily', type: 'positive', category: 'routine' },
+    { name: 'No phone first 30 min', frequency: 'daily', type: 'positive', category: 'mental' },
+    { name: 'Cold shower', frequency: 'daily', type: 'positive', category: 'recovery' },
+    { name: 'Protein breakfast', frequency: 'daily', type: 'positive', category: 'nutrition' },
   ],
   'Stay consistent': [
-    { name: 'Check habits daily', frequency: 'daily', type: 'positive' },
-    { name: 'Review goals weekly', frequency: 'weekly', type: 'positive' },
-    { name: 'Never miss two days in a row', frequency: 'daily', type: 'positive' },
+    { name: 'Check habits daily', frequency: 'daily', type: 'positive', category: 'tracking' },
+    { name: 'Review weekly goals', frequency: 'weekly', type: 'positive', category: 'tracking' },
+    { name: 'Never miss two days in a row', frequency: 'daily', type: 'positive', category: 'discipline' },
+    { name: '5 min mobility post-workout', frequency: 'daily', type: 'positive', category: 'recovery' },
   ],
 }
+
+export const GUT_HEALTH_HABITS = [
+  { name: 'Drink 8 glasses of water', frequency: 'daily', type: 'positive', category: 'gut', icon: '💧' },
+  { name: 'Eat probiotic food (dahi/kefir/kimchi)', frequency: 'daily', type: 'positive', category: 'gut', icon: '🦠' },
+  { name: 'Include a super seed today', frequency: 'daily', type: 'positive', category: 'gut', icon: '🌱' },
+  { name: 'Eat 5+ different vegetables today', frequency: 'daily', type: 'positive', category: 'gut', icon: '🥦' },
+  { name: 'Chew food slowly (mindful eating)', frequency: 'daily', type: 'positive', category: 'gut', icon: '🍽️' },
+  { name: 'Walk 10 min after main meal', frequency: 'daily', type: 'positive', category: 'gut', icon: '🚶' },
+  { name: 'Eat 30 different plants this week', frequency: 'weekly', type: 'positive', category: 'gut', icon: '🌿' },
+]
 
 export const CLASS_ROUTINES = {
   Warrior: [
