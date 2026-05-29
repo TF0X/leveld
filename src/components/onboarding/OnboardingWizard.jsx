@@ -151,7 +151,7 @@ function Step2({ data, onChange, onNext, onBack }) {
       <div>
         <label className="text-xs text-slate-400 block mb-1">Timezone</label>
         <select value={data.timezone || ''} onChange={e => onChange('timezone', e.target.value)}>
-          {timezones.slice(0, 80).map(tz => (
+          {timezones.map(tz => (
             <option key={tz} value={tz}>{tz}</option>
           ))}
         </select>
