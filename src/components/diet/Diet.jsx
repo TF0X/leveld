@@ -28,14 +28,17 @@ function MacroPie({ protein, carbs, fat }) {
   )
 }
 
+const EMPTY_FORM = { name: '', calories: '', protein: '', carbs: '', fat: '' }
+
 export default function Diet() {
   const { dietLogs, logDiet, gainXP, openaiKey } = useStore()
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = dietLogs.filter(l => l.date.startsWith(today))
 
-  const [form, setForm] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', water: '' })
+  const [form, setForm] = useState(EMPTY_FORM)
   const [analyzing, setAnalyzing] = useState(false)
   const [water, setWater] = useState(0)
+  const [showMacros, setShowMacros] = useState(true)
   const fileRef = useRef()
 
   const totals = todayLogs.reduce((acc, l) => ({
@@ -54,7 +57,8 @@ export default function Diet() {
       const base64 = reader.result.split(',')[1]
       try {
         const result = await analyzeFoodPhoto(openaiKey, base64)
-        setForm({ name: result.name, calories: result.calories, protein: result.protein_g, carbs: result.carbs_g, fat: result.fat_g, water: '' })
+        setForm({ name: result.name, calories: result.calories, protein: result.protein_g, carbs: result.carbs_g, fat: result.fat_g })
+        setShowMacros(true)
       } catch {
         alert('Could not analyze image. Try entering manually.')
       } finally {
@@ -66,9 +70,15 @@ export default function Diet() {
 
   const handleLog = () => {
     if (!form.name) return
-    logDiet({ name: form.name, calories: +form.calories || 0, protein: +form.protein || 0, carbs: +form.carbs || 0, fat: +form.fat || 0 })
+    logDiet({
+      name: form.name,
+      calories: +form.calories || 0,
+      protein: showMacros ? (+form.protein || 0) : 0,
+      carbs: showMacros ? (+form.carbs || 0) : 0,
+      fat: showMacros ? (+form.fat || 0) : 0,
+    })
     gainXP(10, 'meal')
-    setForm({ name: '', calories: '', protein: '', carbs: '', fat: '', water: '' })
+    setForm(EMPTY_FORM)
   }
 
   return (
@@ -104,7 +114,7 @@ export default function Diet() {
             {Array.from({ length: 8 }, (_, i) => (
               <button
                 key={i}
-                onClick={() => setWater(i + 1)}
+                onClick={() => setWater(i < water ? i : i + 1)}
                 className={`w-6 h-8 rounded text-xs border ${i < water ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-700'}`}
                 title={`${(i + 1) * 250}ml`}
               >
@@ -118,7 +128,16 @@ export default function Diet() {
 
       {/* Log Entry */}
       <div className="rpg-panel p-4 space-y-3">
-        <div className="font-pixel text-xs text-violet-400">LOG MEAL</div>
+        <div className="flex items-center justify-between">
+          <div className="font-pixel text-xs text-violet-400">LOG MEAL</div>
+          <button
+            className={`text-xs px-3 py-1 rounded border transition-all ${showMacros ? 'border-violet-500 bg-violet-900 text-violet-300' : 'border-slate-600 text-slate-500'}`}
+            onClick={() => setShowMacros(v => !v)}
+          >
+            {showMacros ? '📊 Macros ON' : '📊 Macros OFF'}
+          </button>
+        </div>
+
         {openaiKey && (
           <>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
@@ -131,26 +150,50 @@ export default function Diet() {
             </button>
           </>
         )}
-        <input type="text" placeholder="Food name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs text-slate-500">Calories</label>
-            <input type="number" placeholder="kcal" value={form.calories} onChange={e => setForm(f => ({ ...f, calories: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Protein (g)</label>
-            <input type="number" placeholder="g" value={form.protein} onChange={e => setForm(f => ({ ...f, protein: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Carbs (g)</label>
-            <input type="number" placeholder="g" value={form.carbs} onChange={e => setForm(f => ({ ...f, carbs: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Fat (g)</label>
-            <input type="number" placeholder="g" value={form.fat} onChange={e => setForm(f => ({ ...f, fat: e.target.value }))} />
-          </div>
+
+        <input
+          type="text"
+          placeholder="Food name (e.g. Dal rice, Banana)"
+          value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+        />
+
+        <div>
+          <label className="text-xs text-slate-500">Calories (kcal) — optional</label>
+          <input
+            type="number"
+            placeholder="e.g. 450"
+            value={form.calories}
+            onChange={e => setForm(f => ({ ...f, calories: e.target.value }))}
+          />
         </div>
-        <button className="rpg-btn-primary w-full" onClick={handleLog} disabled={!form.name}>Log Meal +10 XP</button>
+
+        {showMacros && (
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs text-blue-400">Protein (g)</label>
+              <input type="number" placeholder="0" value={form.protein} onChange={e => setForm(f => ({ ...f, protein: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-amber-400">Carbs (g)</label>
+              <input type="number" placeholder="0" value={form.carbs} onChange={e => setForm(f => ({ ...f, carbs: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-red-400">Fat (g)</label>
+              <input type="number" placeholder="0" value={form.fat} onChange={e => setForm(f => ({ ...f, fat: e.target.value }))} />
+            </div>
+          </div>
+        )}
+
+        {!showMacros && (
+          <div className="text-xs text-slate-600 bg-slate-900 rounded p-2">
+            Macros off — only name and calories will be saved.
+          </div>
+        )}
+
+        <button className="rpg-btn-primary w-full" onClick={handleLog} disabled={!form.name}>
+          Log Meal +10 XP
+        </button>
       </div>
 
       {/* Recent logs */}
@@ -161,8 +204,8 @@ export default function Diet() {
             {todayLogs.map(l => (
               <div key={l.id} className="flex items-center gap-2 text-xs">
                 <span className="flex-1 text-slate-200">{l.name}</span>
-                <span className="text-amber-400">{l.calories} kcal</span>
-                <span className="text-blue-400">{l.protein}g P</span>
+                {l.calories > 0 && <span className="text-amber-400">{l.calories} kcal</span>}
+                {l.protein > 0 && <span className="text-blue-400">{l.protein}g P</span>}
               </div>
             ))}
           </div>

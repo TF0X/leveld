@@ -24,18 +24,95 @@ function StatBar({ value, max, color, label }) {
   )
 }
 
-function CharacterCard({ character }) {
+const SEASON_SCENES = {
+  spring: {
+    bg: 'linear-gradient(180deg, #0d2b0d 0%, #1a3a1a 50%, #0f1a0f 100%)',
+    particles: ['🌸', '🌸', '🌿', '🌸'],
+    ground: '#2d4a1e',
+    sky: '#1a3a2e',
+    label: 'Spring',
+  },
+  summer: {
+    bg: 'linear-gradient(180deg, #0a1f2e 0%, #0d3040 50%, #1a2e1a 100%)',
+    particles: ['🌟', '☀️', '🌿', '🌊'],
+    ground: '#1e3a1a',
+    sky: '#0a2040',
+    label: 'Summer',
+  },
+  autumn: {
+    bg: 'linear-gradient(180deg, #2e1a05 0%, #3d2008 50%, #1a0f05 100%)',
+    particles: ['🍂', '🍁', '🍂', '🍁'],
+    ground: '#3d1e08',
+    sky: '#2a1005',
+    label: 'Autumn',
+  },
+  winter: {
+    bg: 'linear-gradient(180deg, #050f1e 0%, #0a1535 50%, #050a14 100%)',
+    particles: ['❄️', '❄️', '⭐', '❄️'],
+    ground: '#0d1a2e',
+    sky: '#050f20',
+    label: 'Winter',
+  },
+}
+
+function SeasonalScene({ season }) {
+  const scene = SEASON_SCENES[season] || SEASON_SCENES.winter
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-l">
+      <div className="absolute inset-0" style={{ background: scene.bg }} />
+      {/* Stars / sky dots */}
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-0.5 h-0.5 rounded-full bg-white star"
+          style={{
+            left: `${10 + i * 14}%`,
+            top: `${8 + (i % 3) * 12}%`,
+            '--dur': `${2 + i * 0.5}s`,
+            '--delay': `${i * 0.3}s`,
+          }}
+        />
+      ))}
+      {/* Ground line */}
+      <div className="absolute bottom-0 left-0 right-0 h-6 rounded-bl" style={{ background: scene.ground, opacity: 0.6 }} />
+      {/* Floating particles */}
+      {scene.particles.map((p, i) => (
+        <div
+          key={i}
+          className="absolute text-xs"
+          style={{
+            left: `${5 + i * 22}%`,
+            top: `${20 + (i % 2) * 30}%`,
+            animation: `float ${2.5 + i * 0.4}s ease-in-out infinite`,
+            animationDelay: `${i * 0.5}s`,
+            fontSize: '10px',
+            opacity: 0.7,
+          }}
+        >
+          {p}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CharacterCard({ character, season }) {
   const tier = getTier(character.level)
   const xpNeeded = xpForLevel(character.level)
   const multiplier = getStreakMultiplier(character.streak)
 
   return (
-    <div className="rpg-panel p-4">
-      <div className="flex gap-4 items-start">
-        <div className="flex-shrink-0">
-          <PixelCharacter character={character} size={90} degradation={character.gearDegradation} />
+    <div className="rpg-panel overflow-hidden">
+      <div className="flex gap-0 items-stretch">
+        {/* Left — seasonal scene + character */}
+        <div className="relative flex-shrink-0 w-28 flex items-end justify-center pb-2" style={{ minHeight: '140px' }}>
+          <SeasonalScene season={season} />
+          <div className="relative z-10">
+            <PixelCharacter character={character} size={90} degradation={character.gearDegradation} />
+          </div>
         </div>
-        <div className="flex-1 space-y-3">
+        {/* Right — stats */}
+        <div className="flex-1 p-4 space-y-3">
           <div>
             <div className="font-pixel text-xs text-white">{character.name}</div>
             <div className="font-pixel text-xs mt-0.5" style={{ color: tier.color, fontSize: '9px' }}>
@@ -44,17 +121,13 @@ function CharacterCard({ character }) {
           </div>
           <StatBar value={character.hp} max={character.maxHp} color="#ef4444" label="HP" />
           <StatBar value={character.xp} max={xpNeeded} color="#10b981" label="XP" />
-          <div className="flex gap-4 text-xs">
+          <div className="flex gap-3 flex-wrap text-xs">
             <span className="text-amber-400">💰 {character.gold || 0}</span>
             <span className="text-blue-400">⚡ {character.willpower || 0}</span>
-            {character.streak > 0 && (
-              <span className="fire-streak">🔥 {character.streak}d</span>
-            )}
+            {character.streak > 0 && <span className="fire-streak">🔥 {character.streak}d</span>}
           </div>
           {multiplier > 1 && (
-            <div className="text-xs text-amber-400 font-pixel" style={{ fontSize: '9px' }}>
-              ×{multiplier} XP BONUS
-            </div>
+            <div className="text-xs text-amber-400 font-pixel" style={{ fontSize: '9px' }}>×{multiplier} XP BONUS</div>
           )}
         </div>
       </div>
@@ -176,7 +249,7 @@ export default function Dashboard() {
         <SeasonBadge season={season} />
       </div>
 
-      <CharacterCard character={character} />
+      <CharacterCard character={character} season={season} />
 
       {coachMsg && (
         <div className="rpg-panel p-4 border-l-2 border-blue-600">
