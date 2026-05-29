@@ -1,5 +1,6 @@
-const CACHE = 'selfos-v1.0.6';
-const SHELL = ['/', '/index.html', '/css/tokens.css', '/css/app.css', '/js/db.js', '/js/gamification.js', '/js/farm.js', '/js/ai.js', '/js/habits.js', '/js/app.js', '/manifest.json'];
+const CACHE = 'selfos-v1.0.7';
+const BASE = self.location.pathname.replace(/sw\.js$/, '');
+const SHELL = [BASE, BASE+'index.html', BASE+'css/tokens.css', BASE+'css/app.css', BASE+'js/db.js', BASE+'js/gamification.js', BASE+'js/farm.js', BASE+'js/ai.js', BASE+'js/habits.js', BASE+'js/app.js', BASE+'manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, {cache: 'reload'})))).then(() => self.skipWaiting()));
@@ -25,7 +26,7 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.matchAll({type:'window'}).then(list => {
     if (list.length) return list[0].focus();
-    return clients.openWindow('/');
+    return clients.openWindow(BASE);
   }));
 });
 

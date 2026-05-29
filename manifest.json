@@ -2,7 +2,7 @@
   "name": "SELF OS",
   "short_name": "SELF OS",
   "description": "Behavioral consequence engine. Your farm reflects your life.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0d1a",
   "theme_color": "#0a0d1a",
