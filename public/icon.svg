@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="24" fill="#0f0f1a"/>
+  <rect x="80" y="20" width="32" height="8" fill="#f59e0b"/>
+  <rect x="88" y="28" width="16" height="8" fill="#f59e0b"/>
+  <rect x="72" y="36" width="48" height="56" fill="#7c3aed"/>
+  <rect x="64" y="44" width="8" height="40" fill="#6d28d9"/>
+  <rect x="120" y="44" width="8" height="40" fill="#6d28d9"/>
+  <rect x="72" y="92" width="20" height="48" fill="#4c1d95"/>
+  <rect x="100" y="92" width="20" height="48" fill="#4c1d95"/>
+  <rect x="68" y="132" width="24" height="16" fill="#1f2937"/>
+  <rect x="100" y="132" width="24" height="16" fill="#1f2937"/>
+  <rect x="84" y="52" width="8" height="8" fill="#f59e0b"/>
+  <rect x="100" y="52" width="8" height="8" fill="#f59e0b"/>
+  <rect x="88" y="64" width="16" height="4" fill="#f59e0b"/>
+  <text x="96" y="170" font-family="monospace" font-size="10" fill="#64748b" text-anchor="middle">AscendRPG</text>
+</svg>
