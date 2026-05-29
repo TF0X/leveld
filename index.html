@@ -1,66 +1,24 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f1220" />
-  <meta name="description" content="LevelD is an offline-first life tracker for meals, workouts, habits, hobbies, and recovery." />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
-  <link rel="stylesheet" href="css/tokens.css" />
-  <link rel="stylesheet" href="css/reset.css" />
-  <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/utilities.css" />
-  <link rel="stylesheet" href="css/animations.css" />
-  <title>LevelD</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0d1a">
+  <title>SELF OS</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
-  <div class="app-shell" id="app-shell">
-    <header class="app-header">
-      <button class="icon-button" id="menu-button" aria-label="Open app menu">
-        <i class="ti ti-menu-2" aria-hidden="true"></i>
-      </button>
-      <div class="header-brand">
-        <span class="header-brand__name">LevelD</span>
-      </div>
-      <button class="icon-button" id="notifications-button" aria-label="Open notification settings">
-        <i class="ti ti-bell" aria-hidden="true"></i>
-      </button>
-    </header>
-
-    <main class="app-content" id="app-content" aria-live="polite"></main>
-
-    <nav class="tab-bar" aria-label="Primary">
-      <button class="tab-bar__item tab-bar__item--active" data-tab="home" aria-label="Home">
-        <i class="ti ti-home" aria-hidden="true"></i>
-        <span>Home</span>
-      </button>
-      <button class="tab-bar__item" data-tab="insights" aria-label="Insights">
-        <i class="ti ti-chart-line" aria-hidden="true"></i>
-        <span>Insights</span>
-      </button>
-      <div class="tab-bar__fab-slot" aria-hidden="true"></div>
-      <button class="tab-bar__item" data-tab="goals" aria-label="Goals">
-        <i class="ti ti-target" aria-hidden="true"></i>
-        <span>Goals</span>
-      </button>
-      <button class="tab-bar__item" data-tab="profile" aria-label="Profile">
-        <i class="ti ti-user" aria-hidden="true"></i>
-        <span>Profile</span>
-      </button>
-
-      <button class="fab" id="fab-add" aria-label="Quick log">
-        <i class="ti ti-plus" aria-hidden="true"></i>
-      </button>
-    </nav>
+  <div id="app">
+    <div style="display:flex;align-items:center;justify-content:center;height:100dvh;color:#8a92ac;font-size:13px;font-family:system-ui">
+      initializing...
+    </div>
   </div>
-
-  <div id="sheet-root"></div>
-  <div id="modal-root"></div>
-  <div id="toast-root"></div>
-
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>

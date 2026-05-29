@@ -1,81 +1,37 @@
-const VERSION = 'leveld-v2.1.0';
+const CACHE = 'selfos-v1.0.6';
+const SHELL = ['/', '/index.html', '/css/tokens.css', '/css/app.css', '/js/db.js', '/js/gamification.js', '/js/farm.js', '/js/ai.js', '/js/habits.js', '/js/app.js', '/manifest.json'];
 
-const APP_SHELL = [
-  './',
-  './index.html',
-  './manifest.json',
-  './css/tokens.css',
-  './css/reset.css',
-  './css/components.css',
-  './css/utilities.css',
-  './css/animations.css',
-  './js/app.js',
-  './js/db.js',
-  './js/export.js',
-  './js/gamification.js',
-  './js/gemini.js',
-  './js/graph.js',
-  './js/habits.js',
-  './js/hobbies.js',
-  './js/meals.js',
-  './js/notifications.js',
-  './js/search.js',
-  './js/shred.js',
-  './js/templates.js',
-  './js/theme.js',
-  './js/ui.js',
-  './js/water.js',
-  './js/workouts.js',
-  './icons/icon.svg',
-  './icons/icon-maskable.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== VERSION).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
-self.addEventListener('fetch', (event) => {
-  const request = event.request;
-  if (request.method !== 'GET') return;
-  const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(VERSION).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      });
-    }).catch(() => caches.match('./index.html'))
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil((async () => {
-    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of windows) {
-      if ('focus' in client) return client.focus();
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('api.openai.com') || e.request.url.includes('generativelanguage.googleapis.com')) return;
+  e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+    if (res.ok && e.request.url.startsWith(self.location.origin)) {
+      const clone = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
     }
-    if (self.clients.openWindow) return self.clients.openWindow('./');
-  })());
+    return res;
+  })));
 });
 
-self.addEventListener('message', (event) => {
-  if (event.data?.type === 'skip-waiting') self.skipWaiting();
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({type:'window'}).then(list => {
+    if (list.length) return list[0].focus();
+    return clients.openWindow('/');
+  }));
+});
+
+self.addEventListener('message', e => {
+  if (e.data?.type === 'skip-waiting') self.skipWaiting();
+  if (e.data?.type === 'show-notif') {
+    self.registration.showNotification(e.data.title, { body: e.data.body, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'selfos' });
+  }
 });

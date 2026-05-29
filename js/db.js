@@ -1,279 +1,194 @@
-import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@8/+esm';
-
-export const DB_NAME = 'lifetracker';
-export const DB_VERSION = 5;
-
-export const STORES = {
-  profile: 'profile',
-  meals: 'meals',
-  workouts: 'workouts',
-  hobbies: 'hobbies',
-  bodyMetrics: 'bodyMetrics',
-  dailyScores: 'dailyScores',
-  personalRecords: 'personalRecords',
-  habits: 'habits',
-  habitLogs: 'habitLogs',
-  todos: 'todos',
-  shredChallenges: 'shredChallenges',
-  negativeHabitLogs: 'negativeHabitLogs',
-  water: 'water',
-  mealTemplates: 'mealTemplates',
-  notifSchedule: 'notifSchedule',
-};
-
-const DEFAULT_PROFILE = {
-  id: 'user',
-  name: '',
-  geminiApiKey: '',
-  age: null,
-  sex: 'male',
-  heightCm: null,
-  activityLevel: 'moderate',
-  calorieGoalPreset: 'maintain',
-  dietPreference: '',
-  goals: {
-    calories: 2200,
-    protein: 150,
-    water: 3000,
-    workoutsPerWeek: 4,
-    hobbyMinutes: 60,
-  },
-  hobbies: [],
-  level: 1,
-  totalXP: 0,
-  streak: 0,
-  lastLoggedDate: null,
-  freezeTokens: 0,
-  streakRecord: 0,
-  achievements: [],
-  rollingSummary: null,
-  lastBackup: null,
-  lastInsightWeek: null,
-  insight: null,
-  onboardingComplete: false,
-  homeCardOrder: ['streak', 'ring', 'quickLog', 'quests', 'habits'],
-  notifQuietHours: { start: 22, end: 7 },
-  theme: 'dark',
-  shredMode: false,
-};
-
-let _db;
+const DB_NAME = 'selfos';
+const DB_VERSION = 5;
+let _db = null;
 
 export function todayStr() {
-  return dateStr(new Date());
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-export function dateStr(input) {
-  const date = new Date(input);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export function dateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-export async function getDB() {
+const PROFILE_DEFAULTS = {
+  id: 'user', name: '', gptApiKey: '',
+  age: null, sex: null, heightCm: null, activityLevel: 'moderate',
+  calorieGoalPreset: 'shred', dietPreference: 'indian',
+  goals: { calories: 1800, protein: 180, water: 3000, workoutsPerWeek: 5, hobbyMinutes: 60, sleepHours: 7.5, bedtime: '23:00', wakeTime: '06:30' },
+  hobbies: [],
+  level: 1, totalXP: 0,
+  streak: 0, lastLoggedDate: null, freezeTokens: 0, streakRecord: 0,
+  achievements: [],
+  rollingSummary: null, behaviorSummary: null,
+  lastBackup: null, lastInsightWeek: null, insight: null,
+  onboardingComplete: false,
+  homeCardOrder: ['hero','farm','quests','habits','quicklog'],
+  notifQuietHours: { start: 22, end: 7 },
+  theme: 'dark', notifTone: 'savage',
+  violations: { week: 0, total: 0, lastReset: null },
+  identity: 'Drifting',
+  farmSeason: 'summer',
+  farmOrganisms: 3,
+};
+
+export async function openDB() {
   if (_db) return _db;
-  _db = await openDB(DB_NAME, DB_VERSION, {
-    async upgrade(db, oldVersion, _newVersion, tx) {
-      ensureStores(db);
-      if (oldVersion < 3) {
-        const profileStore = tx.objectStore(STORES.profile);
-        const profile = await profileStore.get('user');
-        if (profile) {
-          if (profile.waterToday > 0 && profile.waterDate) {
-            await tx.objectStore(STORES.water).put({
-              date: profile.waterDate,
-              ml: profile.waterToday,
-              entries: [{ time: '09:00', ml: profile.waterToday }],
-            });
-          }
-          delete profile.waterToday;
-          delete profile.waterDate;
-          delete profile.lastChallengePenaltyDate;
-          delete profile.hourlyNotifEnabled;
-          profile.homeCardOrder ||= DEFAULT_PROFILE.homeCardOrder;
-          profile.onboardingComplete ??= true;
-          profile.notifQuietHours ||= DEFAULT_PROFILE.notifQuietHours;
-          profile.theme ||= 'dark';
-          await profileStore.put(profile);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      const stores = [
+        ['profile', { keyPath: 'id' }],
+        ['meals', { autoIncrement: true }],
+        ['workouts', { autoIncrement: true }],
+        ['hobbies', { autoIncrement: true }],
+        ['bodyMetrics', { keyPath: 'date' }],
+        ['dailyScores', { keyPath: 'date' }],
+        ['personalRecords', { keyPath: 'exerciseName' }],
+        ['habits', { autoIncrement: true }],
+        ['habitLogs', { autoIncrement: true }],
+        ['water', { keyPath: 'date' }],
+        ['mealTemplates', { autoIncrement: true }],
+        ['notifSchedule', { keyPath: 'id' }],
+        ['quests', { autoIncrement: true }],
+        ['todos', { autoIncrement: true }],
+        ['violations', { autoIncrement: true }],
+        ['cravings', { autoIncrement: true }],
+        ['questTasks', { keyPath: 'date' }],
+      ];
+      for (const [name, opts] of stores) {
+        if (!db.objectStoreNames.contains(name)) {
+          const store = db.createObjectStore(name, opts);
+          if (name === 'meals') { store.createIndex('date', 'date'); store.createIndex('descriptionLower', 'descriptionLower'); }
+          if (name === 'workouts' || name === 'hobbies') store.createIndex('date', 'date');
+          if (name === 'habitLogs') { store.createIndex('date', 'date'); store.createIndex('habitId', 'habitId'); }
+          if (name === 'violations') store.createIndex('date', 'date');
+          if (name === 'cravings') store.createIndex('date', 'date');
+          if (name === 'todos') store.createIndex('dueDate', 'dueDate');
         }
       }
-      if (oldVersion < 4 && db.objectStoreNames.contains(STORES.todos) === false) {
-        const todoStore = db.createObjectStore(STORES.todos, { keyPath: 'id', autoIncrement: true });
-        todoStore.createIndex('completed', 'completed');
-        todoStore.createIndex('createdAt', 'createdAt');
-      }
-      if (oldVersion < 5) {
-        if (db.objectStoreNames.contains(STORES.shredChallenges) === false) {
-          db.createObjectStore(STORES.shredChallenges, { keyPath: 'date' });
-        }
-        if (db.objectStoreNames.contains(STORES.negativeHabitLogs) === false) {
-          const store = db.createObjectStore(STORES.negativeHabitLogs, { keyPath: 'id', autoIncrement: true });
-          store.createIndex('date', 'date');
-        }
-        const profileStore = tx.objectStore(STORES.profile);
-        const profile = await profileStore.get('user');
-        if (profile) {
-          profile.shredMode ??= false;
-          await profileStore.put(profile);
-        }
-      }
-    },
+    };
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror = e => reject(e.target.error);
   });
-  return _db;
-}
-
-function ensureStores(db) {
-  if (!db.objectStoreNames.contains(STORES.profile)) {
-    db.createObjectStore(STORES.profile, { keyPath: 'id' });
-  }
-  if (!db.objectStoreNames.contains(STORES.meals)) {
-    const store = db.createObjectStore(STORES.meals, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('date', 'date');
-    store.createIndex('descriptionLower', 'descriptionLower');
-  }
-  if (!db.objectStoreNames.contains(STORES.workouts)) {
-    const store = db.createObjectStore(STORES.workouts, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('date', 'date');
-  }
-  if (!db.objectStoreNames.contains(STORES.hobbies)) {
-    const store = db.createObjectStore(STORES.hobbies, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('date', 'date');
-  }
-  if (!db.objectStoreNames.contains(STORES.bodyMetrics)) {
-    db.createObjectStore(STORES.bodyMetrics, { keyPath: 'date' });
-  }
-  if (!db.objectStoreNames.contains(STORES.dailyScores)) {
-    db.createObjectStore(STORES.dailyScores, { keyPath: 'date' });
-  }
-  if (!db.objectStoreNames.contains(STORES.personalRecords)) {
-    db.createObjectStore(STORES.personalRecords, { keyPath: 'exerciseName' });
-  }
-  if (!db.objectStoreNames.contains(STORES.habits)) {
-    db.createObjectStore(STORES.habits, { keyPath: 'id', autoIncrement: true });
-  }
-  if (!db.objectStoreNames.contains(STORES.habitLogs)) {
-    const store = db.createObjectStore(STORES.habitLogs, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('date', 'date');
-    store.createIndex('habitId', 'habitId');
-  }
-  if (!db.objectStoreNames.contains(STORES.todos)) {
-    const store = db.createObjectStore(STORES.todos, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('completed', 'completed');
-    store.createIndex('createdAt', 'createdAt');
-  }
-  if (!db.objectStoreNames.contains(STORES.shredChallenges)) {
-    db.createObjectStore(STORES.shredChallenges, { keyPath: 'date' });
-  }
-  if (!db.objectStoreNames.contains(STORES.negativeHabitLogs)) {
-    const store = db.createObjectStore(STORES.negativeHabitLogs, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('date', 'date');
-  }
-  if (!db.objectStoreNames.contains(STORES.water)) {
-    db.createObjectStore(STORES.water, { keyPath: 'date' });
-  }
-  if (!db.objectStoreNames.contains(STORES.mealTemplates)) {
-    const store = db.createObjectStore(STORES.mealTemplates, { keyPath: 'id', autoIncrement: true });
-    store.createIndex('useCount', 'useCount');
-  }
-  if (!db.objectStoreNames.contains(STORES.notifSchedule)) {
-    db.createObjectStore(STORES.notifSchedule, { keyPath: 'id' });
-  }
 }
 
 export async function getProfile() {
-  const db = await getDB();
-  const profile = await db.get(STORES.profile, 'user');
-  if (!profile) {
-    await db.put(STORES.profile, structuredClone(DEFAULT_PROFILE));
-    return structuredClone(DEFAULT_PROFILE);
-  }
-  return {
-    ...DEFAULT_PROFILE,
-    ...profile,
-    goals: { ...DEFAULT_PROFILE.goals, ...(profile.goals || {}) },
-    notifQuietHours: { ...DEFAULT_PROFILE.notifQuietHours, ...(profile.notifQuietHours || {}) },
-    homeCardOrder: Array.isArray(profile.homeCardOrder) ? profile.homeCardOrder : DEFAULT_PROFILE.homeCardOrder,
-  };
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('profile', 'readonly');
+    const req = tx.objectStore('profile').get('user');
+    req.onsuccess = () => {
+      const stored = req.result || {};
+      const merged = deepMerge({ ...PROFILE_DEFAULTS }, stored);
+      resolve(merged);
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function saveProfile(patch) {
-  const db = await getDB();
-  const current = await getProfile();
-  const next = {
-    ...current,
-    ...patch,
-    id: 'user',
-    goals: { ...current.goals, ...(patch.goals || {}) },
-    notifQuietHours: { ...current.notifQuietHours, ...(patch.notifQuietHours || {}) },
-  };
-  await db.put(STORES.profile, next);
-  return next;
+export async function saveProfile(profile) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('profile', 'readwrite');
+    const req = tx.objectStore('profile').put(profile);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function addRecord(store, value) {
-  const db = await getDB();
-  return db.add(store, value);
+export async function addRecord(store, record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function putRecord(store, value) {
-  const db = await getDB();
-  return db.put(store, value);
-}
-
-export async function getRecord(store, key) {
-  const db = await getDB();
-  return db.get(store, key);
+export async function putRecord(store, record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 export async function deleteRecord(store, key) {
-  const db = await getDB();
-  return db.delete(store, key);
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function clearStore(store) {
-  const db = await getDB();
-  return db.clear(store);
-}
-
-export async function getAll(store) {
-  const db = await getDB();
-  return db.getAll(store);
+export async function getRecord(store, key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 export async function getByDate(store, date) {
-  const db = await getDB();
-  return db.getAllFromIndex(store, 'date', date);
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const os = tx.objectStore(store);
+    const req = os.indexNames.contains('date')
+      ? os.index('date').getAll(IDBKeyRange.only(date))
+      : os.getAll(IDBKeyRange.only(date));
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function getByDateRange(store, startDate, endDate) {
-  const db = await getDB();
-  return db.getAllFromIndex(store, 'date', IDBKeyRange.bound(startDate, endDate));
+export async function getByDateRange(store, start, end) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const os = tx.objectStore(store);
+    const req = os.indexNames.contains('date')
+      ? os.index('date').getAll(IDBKeyRange.bound(start, end))
+      : os.getAll(IDBKeyRange.bound(start, end));
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export async function bulkImport(payload) {
-  const db = await getDB();
-  const tx = db.transaction(Object.values(STORES), 'readwrite');
-  for (const name of Object.values(STORES)) {
-    await tx.objectStore(name).clear();
-  }
-  if (payload.profile) {
-    await tx.objectStore(STORES.profile).put({ ...DEFAULT_PROFILE, ...payload.profile, id: 'user' });
-  }
-  for (const name of Object.values(STORES)) {
-    if (name === STORES.profile || !Array.isArray(payload[name])) continue;
-    for (const row of payload[name]) {
-      await tx.objectStore(name).put(row);
+export async function getAllRecords(store) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function exportAll() {
+  const stores = ['profile','meals','workouts','hobbies','bodyMetrics','dailyScores','personalRecords','habits','habitLogs','water','mealTemplates','quests','todos','violations','cravings','questTasks'];
+  const out = { version: 2, exportedAt: new Date().toISOString() };
+  for (const s of stores) out[s] = await getAllRecords(s);
+  return out;
+}
+
+function deepMerge(target, source) {
+  const out = { ...target };
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      out[key] = deepMerge(target[key] || {}, source[key]);
+    } else if (source[key] !== undefined) {
+      out[key] = source[key];
     }
   }
-  await tx.done;
-}
-
-export async function clearAll() {
-  const db = await getDB();
-  const tx = db.transaction(Object.values(STORES), 'readwrite');
-  for (const name of Object.values(STORES)) {
-    await tx.objectStore(name).clear();
-  }
-  await tx.done;
+  return out;
 }
