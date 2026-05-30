@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import useStore, { getSeason } from './store/useStore'
+import { startHourlyNotifications, notificationPermission } from './utils/notifications'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import Dashboard from './components/dashboard/Dashboard'
 import Habits from './components/habits/Habits'
@@ -116,6 +117,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [moreOpen, setMoreOpen] = useState(false)
   const season = getSeason()
+
+  // Start hourly notifications if permission already granted
+  useEffect(() => {
+    if (notificationPermission() === 'granted') {
+      startHourlyNotifications(() => useStore.getState())
+    }
+  }, [])
 
   if (!onboarding_complete) return <OnboardingWizard />
 
