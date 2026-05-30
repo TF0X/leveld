@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import useStore, { xpForLevel, getTier, getStreakMultiplier, getSeason } from '../../store/useStore'
 import PixelCharacter from '../character/PixelCharacter'
-import { getDailyQuote } from '../../data/quotes'
 import { getDailyCoachMessage } from '../../utils/ai'
+import { fetchFreshQuote } from '../../utils/quotes'
+import { ANTAGONIST, getPerformanceState, getWorstStreak, getWeekXP, getBestWeekXP, getTodayBonusChallenge, rollXPMultiplier } from '../../utils/antagonist'
 
 function SeasonBadge({ season }) {
   const map = { spring: '🌸 Spring', summer: '🌿 Summer', autumn: '🍂 Autumn', winter: '❄️ Winter' }
-  return <span className="text-xs text-slate-400">{map[season]}</span>
+  return <span className="text-xs text-slate-500">{map[season]}</span>
 }
 
 function StatBar({ value, max, color, label }) {
@@ -25,34 +26,10 @@ function StatBar({ value, max, color, label }) {
 }
 
 const SEASON_SCENES = {
-  spring: {
-    bg: 'linear-gradient(180deg, #0d2b0d 0%, #1a3a1a 50%, #0f1a0f 100%)',
-    particles: ['🌸', '🌸', '🌿', '🌸'],
-    ground: '#2d4a1e',
-    sky: '#1a3a2e',
-    label: 'Spring',
-  },
-  summer: {
-    bg: 'linear-gradient(180deg, #0a1f2e 0%, #0d3040 50%, #1a2e1a 100%)',
-    particles: ['🌟', '☀️', '🌿', '🌊'],
-    ground: '#1e3a1a',
-    sky: '#0a2040',
-    label: 'Summer',
-  },
-  autumn: {
-    bg: 'linear-gradient(180deg, #2e1a05 0%, #3d2008 50%, #1a0f05 100%)',
-    particles: ['🍂', '🍁', '🍂', '🍁'],
-    ground: '#3d1e08',
-    sky: '#2a1005',
-    label: 'Autumn',
-  },
-  winter: {
-    bg: 'linear-gradient(180deg, #050f1e 0%, #0a1535 50%, #050a14 100%)',
-    particles: ['❄️', '❄️', '⭐', '❄️'],
-    ground: '#0d1a2e',
-    sky: '#050f20',
-    label: 'Winter',
-  },
+  spring: { bg: 'linear-gradient(180deg, #0d2b0d 0%, #1a3a1a 50%, #0f1a0f 100%)', particles: ['🌸','🌸','🌿','🌸'], ground: '#2d4a1e' },
+  summer: { bg: 'linear-gradient(180deg, #0a1f2e 0%, #0d3040 50%, #1a2e1a 100%)', particles: ['🌟','☀️','🌿','🌊'], ground: '#1e3a1a' },
+  autumn: { bg: 'linear-gradient(180deg, #2e1a05 0%, #3d2008 50%, #1a0f05 100%)', particles: ['🍂','🍁','🍂','🍁'], ground: '#3d1e08' },
+  winter: { bg: 'linear-gradient(180deg, #050f1e 0%, #0a1535 50%, #050a14 100%)', particles: ['❄️','❄️','⭐','❄️'], ground: '#0d1a2e' },
 }
 
 function SeasonalScene({ season }) {
@@ -60,35 +37,14 @@ function SeasonalScene({ season }) {
   return (
     <div className="absolute inset-0 overflow-hidden rounded-l">
       <div className="absolute inset-0" style={{ background: scene.bg }} />
-      {/* Stars / sky dots */}
       {[...Array(6)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute w-0.5 h-0.5 rounded-full bg-white star"
-          style={{
-            left: `${10 + i * 14}%`,
-            top: `${8 + (i % 3) * 12}%`,
-            '--dur': `${2 + i * 0.5}s`,
-            '--delay': `${i * 0.3}s`,
-          }}
-        />
+        <div key={i} className="absolute w-0.5 h-0.5 rounded-full bg-white star"
+          style={{ left: `${10 + i * 14}%`, top: `${8 + (i % 3) * 12}%`, '--dur': `${2 + i * 0.5}s`, '--delay': `${i * 0.3}s` }} />
       ))}
-      {/* Ground line */}
       <div className="absolute bottom-0 left-0 right-0 h-6 rounded-bl" style={{ background: scene.ground, opacity: 0.6 }} />
-      {/* Floating particles */}
       {scene.particles.map((p, i) => (
-        <div
-          key={i}
-          className="absolute text-xs"
-          style={{
-            left: `${5 + i * 22}%`,
-            top: `${20 + (i % 2) * 30}%`,
-            animation: `float ${2.5 + i * 0.4}s ease-in-out infinite`,
-            animationDelay: `${i * 0.5}s`,
-            fontSize: '10px',
-            opacity: 0.7,
-          }}
-        >
+        <div key={i} className="absolute text-xs"
+          style={{ left: `${5 + i * 22}%`, top: `${20 + (i % 2) * 30}%`, animation: `float ${2.5 + i * 0.4}s ease-in-out infinite`, animationDelay: `${i * 0.5}s`, fontSize: '10px', opacity: 0.7 }}>
           {p}
         </div>
       ))}
@@ -96,7 +52,7 @@ function SeasonalScene({ season }) {
   )
 }
 
-function CharacterCard({ character, season }) {
+function CharacterCard({ character, season, performance }) {
   const tier = getTier(character.level)
   const xpNeeded = xpForLevel(character.level)
   const multiplier = getStreakMultiplier(character.streak)
@@ -104,20 +60,16 @@ function CharacterCard({ character, season }) {
   return (
     <div className="rpg-panel overflow-hidden">
       <div className="flex gap-0 items-stretch">
-        {/* Left — seasonal scene + character */}
         <div className="relative flex-shrink-0 w-28 flex items-end justify-center pb-2" style={{ minHeight: '140px' }}>
           <SeasonalScene season={season} />
           <div className="relative z-10">
-            <PixelCharacter character={character} size={90} degradation={character.gearDegradation} />
+            <PixelCharacter character={character} size={90} degradation={character.gearDegradation} performance={performance} />
           </div>
         </div>
-        {/* Right — stats */}
         <div className="flex-1 p-4 space-y-3">
           <div>
             <div className="font-pixel text-xs text-white">{character.name}</div>
-            <div className="font-pixel text-xs mt-0.5" style={{ color: tier.color, fontSize: '9px' }}>
-              {tier.name} • Lv.{character.level}
-            </div>
+            <div className="font-pixel text-xs mt-0.5" style={{ color: tier.color, fontSize: '9px' }}>{tier.name} • Lv.{character.level}</div>
           </div>
           <StatBar value={character.hp} max={character.maxHp} color="#ef4444" label="HP" />
           <StatBar value={character.xp} max={xpNeeded} color="#10b981" label="XP" />
@@ -126,43 +78,139 @@ function CharacterCard({ character, season }) {
             <span className="text-blue-400">⚡ {character.willpower || 0}</span>
             {character.streak > 0 && <span className="fire-streak">🔥 {character.streak}d</span>}
           </div>
-          {multiplier > 1 && (
-            <div className="text-xs text-amber-400 font-pixel" style={{ fontSize: '9px' }}>×{multiplier} XP BONUS</div>
-          )}
+          {multiplier > 1 && <div className="text-xs text-amber-400 font-pixel" style={{ fontSize: '9px' }}>×{multiplier} XP BONUS</div>}
         </div>
+      </div>
+      {/* Performance state line */}
+      {performance !== 'ok' && (
+        <div className={`px-4 py-2 border-t border-slate-800 text-xs font-pixel ${performance === 'great' ? 'text-green-500' : performance === 'bad' ? 'text-amber-500' : 'text-red-500'}`} style={{ fontSize: '8px' }}>
+          {ANTAGONIST.performanceState(performance)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PersonalLeaderboard({ xpHistory, bestWeekXP }) {
+  const current = getWeekXP(xpHistory)
+  const best = bestWeekXP || getBestWeekXP(xpHistory)
+  const msg = ANTAGONIST.weeklyCompare(current, best)
+  const pct = best > 0 ? Math.min(100, Math.round((current / best) * 100)) : 0
+
+  return (
+    <div className="rpg-panel p-4">
+      <div className="font-pixel text-xs text-slate-400 mb-3">THIS WEEK VS YOUR BEST</div>
+      <div className="space-y-2">
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-500">Personal Best</span>
+            <span className="text-amber-400">{best} XP</span>
+          </div>
+          <div className="stat-bar">
+            <div className="stat-bar-fill bg-amber-600 opacity-40" style={{ width: '100%' }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-500">This Week</span>
+            <span className="text-violet-400">{current} XP</span>
+          </div>
+          <div className="stat-bar">
+            <div className="stat-bar-fill bg-violet-500" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+      {msg && <div className="text-xs text-slate-500 italic mt-3">{msg}</div>}
+    </div>
+  )
+}
+
+function WorstStreakBanner({ habits }) {
+  const worst = getWorstStreak(habits)
+  if (!worst) return null
+  return (
+    <div className="rpg-panel p-3 border border-red-900">
+      <div className="font-pixel text-xs text-red-400 mb-1" style={{ fontSize: '8px' }}>SHAME COUNTER</div>
+      <div className="text-xs text-slate-400 italic">{ANTAGONIST.worstStreak(worst.habit.name, worst.days)}</div>
+    </div>
+  )
+}
+
+function BonusChallengeBar({ habits, onComplete }) {
+  const challenge = getTodayBonusChallenge(habits)
+  const [dismissed, setDismissed] = useState(false)
+
+  if (!challenge || dismissed) return null
+
+  const now = new Date()
+  const start = new Date(challenge.startTime)
+  const expires = new Date(challenge.expiresAt)
+
+  if (now < start || now > expires || challenge.completed) return null
+
+  const minsLeft = Math.max(0, Math.round((expires - now) / 60000))
+  const pct = Math.max(0, ((expires - now) / (2 * 60 * 60 * 1000)) * 100)
+
+  return (
+    <div className="rpg-panel p-4 border border-amber-600">
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-pixel text-xs text-amber-400" style={{ fontSize: '9px' }}>⚡ BONUS CHALLENGE</div>
+        <span className="text-xs text-amber-400">{minsLeft}m left</span>
+      </div>
+      <div className="text-xs text-slate-300 mb-2">{challenge.habitName}</div>
+      <div className="stat-bar mb-3">
+        <div className="stat-bar-fill bg-amber-500" style={{ width: `${pct}%`, transition: 'none' }} />
+      </div>
+      <div className="text-xs text-slate-500 mb-3">2× XP if completed now. Or don't.</div>
+      <div className="flex gap-2">
+        <button className="rpg-btn-gold flex-1 text-xs" onClick={() => onComplete(challenge)}>Complete (2× XP)</button>
+        <button className="text-xs text-slate-600 px-3" onClick={() => setDismissed(true)}>Skip</button>
       </div>
     </div>
   )
 }
 
-function DailyQuote({ characterClass }) {
-  const quote = getDailyQuote(characterClass)
+function QuoteBanner() {
+  const [quote, setQuote] = useState(null)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    fetchFreshQuote().then(setQuote).catch(() => {})
+  }, [])
+
+  if (!quote || dismissed) return null
+
   return (
-    <div className="rpg-panel p-4 border-l-2 border-violet-600">
-      <div className="text-xs text-slate-400 italic leading-relaxed mb-2">"{quote.text}"</div>
+    <div className="rpg-panel p-4 border-l-2 border-violet-600 relative">
+      <button className="absolute top-2 right-2 text-slate-600 text-xs hover:text-slate-400" onClick={() => setDismissed(true)}>✕</button>
+      <div className="text-xs text-slate-400 italic leading-relaxed mb-2 pr-4">"{quote.content}"</div>
       <div className="text-xs text-violet-400 font-pixel" style={{ fontSize: '9px' }}>— {quote.author}</div>
     </div>
   )
 }
 
-function QuestList({ habits }) {
-  const store = useStore()
+function QuestList({ habits, gainXP, completeHabit, loseXP }) {
   const today = new Date().toISOString().split('T')[0]
   const dailyHabits = habits.filter(h => h.frequency === 'daily')
   const [xpPop, setXpPop] = useState(null)
+  const [multiplierReveal, setMultiplierReveal] = useState(null)
 
-  const completeHabit = (habitId) => {
+  const handleComplete = (habitId) => {
     const habit = habits.find(h => h.id === habitId)
-    if (!habit) return
-    store.completeHabit(habitId)
+    if (!habit || habit.completions?.[today]) return
+    completeHabit(habitId)
     if (habit.type === 'positive') {
-      store.gainXP(15, 'habit')
-      setXpPop({ id: Date.now(), text: '+15 XP' })
+      const mult = rollXPMultiplier()
+      const base = 15
+      const earned = Math.floor(base * mult)
+      gainXP(earned, 'habit')
+      setMultiplierReveal({ id: Date.now(), mult, base, earned })
+      setTimeout(() => setMultiplierReveal(null), 2500)
+      setXpPop({ id: Date.now(), text: `+${earned} XP` })
       setTimeout(() => setXpPop(null), 1500)
     } else {
       const count = (habit.completions?.[today] || 0) + 1
-      const penalty = count === 1 ? 10 : count === 2 ? 25 : 50
-      store.loseXP(penalty, 'negative_habit')
+      loseXP(count === 1 ? 10 : count === 2 ? 25 : 50, 'negative_habit')
     }
   }
 
@@ -174,28 +222,33 @@ function QuestList({ habits }) {
           {xpPop.text}
         </div>
       )}
+      {multiplierReveal && (
+        <div className="absolute top-10 right-4 z-10 rpg-panel p-2 border border-amber-600 text-center" style={{ minWidth: '120px' }}>
+          <div className="font-pixel text-xs text-amber-400" style={{ fontSize: '8px' }}>
+            {multiplierReveal.mult === 2 ? '🎰 2× LUCKY!' : multiplierReveal.mult === 1.5 ? '✨ 1.5× BONUS' : '1× Standard'}
+          </div>
+          <div className="text-xs text-slate-300">{ANTAGONIST.xpMultiplierReveal(multiplierReveal.mult, multiplierReveal.base)}</div>
+        </div>
+      )}
       {dailyHabits.length === 0 ? (
-        <div className="text-xs text-slate-500">No habits yet. Add some in the Habits tab!</div>
+        <div className="text-xs text-slate-500">No habits. Add some in the Habits tab.</div>
       ) : (
         <div className="space-y-2">
           {dailyHabits.map(h => {
             const done = h.completions?.[today]
             const isNeg = h.type === 'negative'
             return (
-              <div
-                key={h.id}
-                className={`flex items-center gap-3 p-2 rounded border transition-all ${done ? 'border-green-800 bg-green-950 opacity-70' : isNeg ? 'border-red-800 bg-red-950' : 'border-slate-700 hover:border-violet-600'}`}
-              >
+              <div key={h.id} className={`flex items-center gap-3 p-2 rounded border transition-all ${done ? 'border-green-800 bg-green-950 opacity-70' : isNeg ? 'border-red-800 bg-red-950' : 'border-slate-700 hover:border-violet-600'}`}>
                 <button
-                  className={`w-5 h-5 rounded border flex items-center justify-center text-xs flex-shrink-0 transition-all ${done ? 'bg-green-600 border-green-500' : isNeg ? 'bg-red-900 border-red-600' : 'border-slate-600 hover:border-violet-500'}`}
-                  onClick={() => !done && completeHabit(h.id)}
+                  className={`w-5 h-5 rounded border flex items-center justify-center text-xs flex-shrink-0 ${done ? 'bg-green-600 border-green-500' : isNeg ? 'bg-red-900 border-red-600' : 'border-slate-600 hover:border-violet-500'}`}
+                  onClick={() => !done && handleComplete(h.id)}
                   disabled={!!done}
                 >
                   {done ? '✓' : isNeg ? '✗' : '◎'}
                 </button>
                 <span className="text-xs flex-1 text-slate-200">{h.name}</span>
                 {h.streak > 0 && <span className="text-xs fire-streak">🔥{h.streak}</span>}
-                {done && <span className="text-xs text-green-400">+15 XP</span>}
+                {done && <span className="text-xs text-green-400">Done</span>}
               </div>
             )
           })}
@@ -206,9 +259,11 @@ function QuestList({ habits }) {
 }
 
 const TOAST_CONFIG = {
-  levelup:   { icon: '⭐', label: 'LEVEL UP!',  border: 'border-amber-600',  btn: 'rpg-btn-gold' },
-  milestone: { icon: '⚔️', label: 'MILESTONE!', border: 'border-violet-600', btn: 'rpg-btn-primary' },
-  badge:     { icon: '🏆', label: 'BADGE EARNED!', border: 'border-emerald-600', btn: 'rpg-btn-secondary' },
+  levelup:    { icon: '⭐', label: 'LEVEL UP!',     border: 'border-amber-600',   btn: 'rpg-btn-gold' },
+  milestone:  { icon: '⚔️', label: 'MILESTONE!',   border: 'border-violet-600',  btn: 'rpg-btn-primary' },
+  badge:      { icon: '🏆', label: 'BADGE EARNED!', border: 'border-emerald-600', btn: 'rpg-btn-secondary' },
+  drop:       { icon: '💎', label: 'ITEM DROP!',    border: 'border-blue-600',    btn: 'rpg-btn-secondary' },
+  antagonist: { icon: '😐', label: 'NOTE.',         border: 'border-slate-600',   btn: 'rpg-btn-secondary' },
 }
 
 function NotificationToast({ notifications, onDismiss }) {
@@ -218,23 +273,32 @@ function NotificationToast({ notifications, onDismiss }) {
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-80 px-4">
       <div className={`rpg-panel p-4 border ${cfg.border} text-center`}>
-        <div className="text-2xl mb-1">{cfg.icon}</div>
-        <div className="font-pixel text-xs text-amber-400 mb-2">{cfg.label}</div>
+        <div className="text-xl mb-1">{cfg.icon}</div>
+        <div className="font-pixel text-xs text-slate-300 mb-2" style={{ fontSize: '9px' }}>{cfg.label}</div>
         <div className="text-xs text-slate-300 leading-relaxed">{n.message}</div>
-        <button className={`${cfg.btn} mt-3 text-xs`} onClick={() => onDismiss(n.id)}>Got it!</button>
+        <button className={`${cfg.btn} mt-3 text-xs`} onClick={() => onDismiss(n.id)}>OK</button>
       </div>
     </div>
   )
 }
 
 export default function Dashboard() {
-  const { character, habits, notifications, clearNotification, openaiKey, updateStreak, checkMilestones, nutrition } = useStore()
+  const {
+    character, habits, notifications, clearNotification, openaiKey,
+    updateStreak, checkMilestones, nutrition, xpHistory, bestWeekXP,
+    updateBestWeekXP, completeHabit, gainXP, loseXP, checkOverdueTodos,
+  } = useStore()
   const [coachMsg, setCoachMsg] = useState('')
   const season = getSeason()
+
+  const performance = getPerformanceState(habits, xpHistory)
+  const currentWeekXP = getWeekXP(xpHistory)
 
   useEffect(() => {
     updateStreak()
     checkMilestones()
+    checkOverdueTodos()
+    updateBestWeekXP(currentWeekXP)
   }, [])
 
   useEffect(() => {
@@ -249,6 +313,19 @@ export default function Dashboard() {
       .catch(() => {})
   }, [openaiKey, character.class])
 
+  const handleBonusComplete = (challenge) => {
+    const habit = habits.find(h => h.id === challenge.habitId)
+    if (!habit) return
+    completeHabit(habit.id)
+    gainXP(30, 'bonus_challenge') // 2× of base 15
+    const today = new Date().toISOString().split('T')[0]
+    const cacheKey = `bonus_challenge_${today}`
+    try {
+      const c = JSON.parse(localStorage.getItem(cacheKey) || '{}')
+      localStorage.setItem(cacheKey, JSON.stringify({ ...c, completed: true }))
+    } catch {}
+  }
+
   return (
     <div className="space-y-4 pb-6">
       <NotificationToast notifications={notifications} onDismiss={clearNotification} />
@@ -258,7 +335,13 @@ export default function Dashboard() {
         <SeasonBadge season={season} />
       </div>
 
-      <CharacterCard character={character} season={season} />
+      <CharacterCard character={character} season={season} performance={performance} />
+
+      <WorstStreakBanner habits={habits} />
+
+      <PersonalLeaderboard xpHistory={xpHistory} bestWeekXP={bestWeekXP} />
+
+      <BonusChallengeBar habits={habits} onComplete={handleBonusComplete} />
 
       {coachMsg && (
         <div className="rpg-panel p-4 border-l-2 border-blue-600">
@@ -267,8 +350,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      <QuestList habits={habits} />
-      <DailyQuote characterClass={character.class} />
+      <QuestList habits={habits} gainXP={gainXP} completeHabit={completeHabit} loseXP={loseXP} />
+
+      <QuoteBanner />
     </div>
   )
 }

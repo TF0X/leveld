@@ -22,7 +22,8 @@ function getTier(level) {
   return 'Legend'
 }
 
-export default function PixelCharacter({ character, size = 120, animate = true, degradation = 0 }) {
+// performance: 'great' | 'ok' | 'bad' | 'terrible'
+export default function PixelCharacter({ character, size = 120, animate = true, degradation = 0, performance = 'ok' }) {
   const cls = character?.class || 'Warrior'
   const level = character?.level || 1
   const tier = getTier(level)
@@ -40,7 +41,17 @@ export default function PixelCharacter({ character, size = 120, animate = true, 
   const isDamaged = hpRatio < 0.5
   const isCritical = hpRatio < 0.25
 
-  const scale = size / 120
+  // Performance-based body transforms
+  const bodyTransform = {
+    great:    'translate(0,0)',
+    ok:       'translate(0,0)',
+    bad:      'translate(0,3)',    // slight slouch
+    terrible: 'translate(0,6)',   // sitting / head-down
+  }[performance] || 'translate(0,0)'
+
+  const gleam = performance === 'great'
+  const slumped = performance === 'bad' || performance === 'terrible'
+  const headDown = performance === 'terrible'
 
   return (
     <svg
@@ -49,10 +60,17 @@ export default function PixelCharacter({ character, size = 120, animate = true, 
       viewBox="0 0 32 45"
       style={{
         imageRendering: 'pixelated',
-        filter: isDamaged ? 'saturate(0.6)' : 'none',
-        animation: animate ? 'float 3s ease-in-out infinite' : 'none',
+        filter: isDamaged ? 'saturate(0.6)' : slumped ? 'saturate(0.75) brightness(0.85)' : 'none',
+        animation: animate && !slumped ? 'float 3s ease-in-out infinite' : 'none',
       }}
     >
+      {/* Performance — great: gleam effect */}
+      {gleam && (
+        <ellipse cx="16" cy="14" rx="10" ry="12" fill="#fff" opacity="0.04">
+          <animate attributeName="opacity" values="0.04;0.12;0.04" dur="2s" repeatCount="indefinite" />
+        </ellipse>
+      )}
+
       {/* Aura / Legend glow */}
       {(showAura || isLegend) && (
         <ellipse cx="16" cy="40" rx="12" ry="3" fill={colors.accent} opacity="0.3">
@@ -62,6 +80,15 @@ export default function PixelCharacter({ character, size = 120, animate = true, 
 
       {/* Shadow */}
       <ellipse cx="16" cy="43" rx="8" ry="2" fill="#000" opacity="0.3" />
+
+      {/* Performance: terrible = head in hands overlay */}
+      {headDown && (
+        <>
+          <rect x="12" y="20" width="8" height="5" fill={colors.skin} opacity="0.9" />
+          <rect x="9" y="22" width="4" height="3" fill={colors.skin} opacity="0.9" />
+          <rect x="19" y="22" width="4" height="3" fill={colors.skin} opacity="0.9" />
+        </>
+      )}
 
       {/* Legs */}
       <rect x="11" y="30" width="4" height="9" fill={armorColor} />

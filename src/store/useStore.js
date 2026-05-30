@@ -108,9 +108,14 @@ const defaultState = {
   workoutLogs: [],
   weightLogs: [],                 // [{ date, weight }]
   quests: [],
+  // Todos: three buckets
+  todos: [],                      // [{ id, text, bucket: 'today'|'week'|'someday', createdAt, completedAt, dueDate }]
+  // Inventory: rare item drops
+  inventory: [],                  // [{ id, name, obtainedAt }]
   openaiKey: '',
   xpHistory: [],
   notifications: [],
+  bestWeekXP: 0,
 }
 
 const useStore = create(
@@ -344,6 +349,93 @@ const useStore = create(
 
       setQuests: (quests) => set({ quests }),
 
+      // ── Todos ──────────────────────────────────────────────────────
+      addTodo: (text, bucket = 'today') => set((s) => {
+        const todayTodos = s.todos.filter(t => t.bucket === 'today' && !t.completedAt)
+        if (bucket === 'today' && todayTodos.length >= 5) {
+          return {
+            notifications: [...s.notifications, {
+              id: Date.now(), type: 'antagonist',
+              message: "You're not that productive. Pick 3.",
+            }]
+          }
+        }
+        const todayCount = s.todos.filter(t => t.createdAt === today()).length
+        if (todayCount >= 5) {
+          return {
+            notifications: [...s.notifications, {
+              id: Date.now(), type: 'antagonist',
+              message: "You're not that productive. Pick 3.",
+            }]
+          }
+        }
+        return {
+          todos: [...s.todos, {
+            id: Date.now(),
+            text,
+            bucket,
+            createdAt: today(),
+            completedAt: null,
+            dueDate: bucket === 'today' ? today() : null,
+          }]
+        }
+      }),
+
+      completeTodo: (todoId) => set((s) => {
+        const todos = s.todos.map(t => t.id === todoId ? { ...t, completedAt: new Date().toISOString() } : t)
+        return { todos }
+      }),
+
+      deleteTodo: (todoId) => set((s) => ({
+        todos: s.todos.filter(t => t.id !== todoId)
+      })),
+
+      moveTodo: (todoId, bucket) => set((s) => ({
+        todos: s.todos.map(t => t.id === todoId ? { ...t, bucket } : t)
+      })),
+
+      // Check overdue todos — called on app open
+      checkOverdueTodos: () => set((s) => {
+        const d = today()
+        let hp = s.character.hp
+        const notifs = [...s.notifications]
+        const todos = s.todos.map(t => {
+          if (t.completedAt || !t.dueDate) return t
+          const daysOverdue = Math.floor((new Date(d) - new Date(t.dueDate)) / 86400000)
+          if (daysOverdue <= 0) return t
+
+          // -5 HP per overdue today todo, once per day
+          if (t.bucket === 'today' && daysOverdue === 1 && t.overdueHpDeducted !== d) {
+            hp = Math.max(0, hp - 5)
+            notifs.push({ id: Date.now() + Math.random(), type: 'antagonist', message: `"${t.text}" missed midnight. -5 HP.` })
+            return { ...t, overdueHpDeducted: d }
+          }
+
+          // 7-day nag
+          if (daysOverdue >= 7 && !t.naggedAt7) {
+            notifs.push({ id: Date.now() + Math.random(), type: 'antagonist', message: `"${t.text}" — 7 days sitting here. Delete it or do it. Pick one.` })
+            return { ...t, naggedAt7: true }
+          }
+
+          return t
+        })
+        return { todos, character: { ...s.character, hp }, notifications: notifs }
+      }),
+
+      // ── Inventory ──────────────────────────────────────────────────
+      addInventoryItem: (name) => set((s) => ({
+        inventory: [...(s.inventory || []), { id: Date.now(), name, obtainedAt: today() }],
+        notifications: [...s.notifications, {
+          id: Date.now(), type: 'drop',
+          message: `Item dropped: ${name}. Rare. Don't lose it.`,
+        }]
+      })),
+
+      // ── Best week XP ───────────────────────────────────────────────
+      updateBestWeekXP: (weekXP) => set((s) => ({
+        bestWeekXP: Math.max(s.bestWeekXP || 0, weekXP)
+      })),
+
       clearNotification: (id) => set((s) => ({
         notifications: s.notifications.filter((n) => n.id !== id)
       })),
@@ -370,16 +462,10 @@ const useStore = create(
     }),
     {
       name: 'ascendrpg-v1',
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
-        if (version < 2) {
-          return {
-            ...persisted,
-            nutrition: defaultState.nutrition,
-            gut: defaultState.gut,
-            weightLogs: [],
-          }
-        }
+        if (version < 2) return { ...persisted, nutrition: defaultState.nutrition, gut: defaultState.gut, weightLogs: [] }
+        if (version < 3) return { ...persisted, todos: [], inventory: [], bestWeekXP: 0 }
         return persisted
       },
     }
