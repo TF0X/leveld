@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import useStore from '../../store/useStore'
-import { PROGRESSION_RULES } from '../../data/workoutTemplates'
+import { PROGRESSION_RULES, getTodayWorkout } from '../../data/workoutTemplates'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid,
@@ -233,6 +233,60 @@ function WorkoutProgramCard({ program }) {
   )
 }
 
+function TodaySessionBanner({ program, onStartSession }) {
+  const result = getTodayWorkout(program)
+  if (!result) return null
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const todayName = DAY_NAMES[new Date().getDay()]
+
+  if (!result.isTrainingDay) {
+    return (
+      <div className="rpg-panel p-4 border border-slate-700">
+        <div className="font-pixel text-xs text-slate-500 mb-1" style={{ fontSize: '9px' }}>TODAY — {todayName.toUpperCase()}</div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-slate-400">Rest Day</div>
+            <div className="text-xs text-slate-600">Next: {result.nextTrainingDay}</div>
+          </div>
+          <span className="text-2xl">🛌</span>
+        </div>
+        {program?.cardioNote && (
+          <div className="text-xs text-amber-600 mt-2 border-t border-slate-800 pt-2">🏃 {program.cardioNote}</div>
+        )}
+      </div>
+    )
+  }
+
+  const { dayData, cardioNote } = result
+
+  return (
+    <div className="rpg-panel p-4 border border-violet-700">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="font-pixel text-xs text-violet-400 mb-1" style={{ fontSize: '9px' }}>TODAY — {todayName.toUpperCase()}</div>
+          <div className="text-sm text-slate-200">{dayData.label}</div>
+          <div className="text-xs text-slate-500">{dayData.exercises.length} exercises</div>
+        </div>
+        <button className="rpg-btn-primary text-xs px-3 py-2" onClick={() => onStartSession(dayData)}>
+          Start ▶
+        </button>
+      </div>
+      <div className="space-y-1">
+        {dayData.exercises.map((ex, i) => (
+          <div key={i} className="flex justify-between text-xs">
+            <span className="text-slate-300">{ex.name}</span>
+            <span className="text-slate-600">{ex.sets}×{ex.reps}</span>
+          </div>
+        ))}
+      </div>
+      {cardioNote && (
+        <div className="text-xs text-amber-600 mt-3 border-t border-slate-800 pt-2">🏃 {cardioNote}</div>
+      )}
+    </div>
+  )
+}
+
 export default function Workout() {
   const { workoutLogs, logWorkout, gainXP, nutrition } = useStore()
   const program = nutrition?.workoutProgramData || null
@@ -245,6 +299,16 @@ export default function Workout() {
 
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = workoutLogs.filter(l => l.date.startsWith(today))
+
+  // Pre-populate exercises from the recommended day plan
+  const startFromPlan = (dayData) => {
+    const preloaded = dayData.exercises.map(ex => ({
+      name: ex.name,
+      sets: Array.from({ length: ex.sets }, () => ({ reps: 0, weight: 0 })),
+    }))
+    setExercises(preloaded)
+    setActive(true)
+  }
 
   const addExercise = (name) => {
     if (!name) return
@@ -299,7 +363,12 @@ export default function Workout() {
         </div>
       </div>
 
-      {/* Active program card */}
+      {/* Today's recommended session — shown when not active and no log yet */}
+      {program && !active && todayLogs.length === 0 && (
+        <TodaySessionBanner program={program} onStartSession={startFromPlan} />
+      )}
+
+      {/* Full program card (collapsible) */}
       {program && <WorkoutProgramCard program={program} />}
 
       {/* Today's completed workout summary */}

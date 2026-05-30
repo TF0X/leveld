@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { calcTargets } from '../data/foods'
 
 const XP_BASE = 100
 const XP_EXPONENT = 1.5
@@ -134,6 +135,44 @@ const useStore = create(
       setNutrition: (updates) => set((s) => ({
         nutrition: { ...s.nutrition, ...updates }
       })),
+
+      // Switch cut / maintain / bulk — recalculates all macro targets instantly
+      switchMode: (newGoalType) => set((s) => {
+        const { weightKg, activityLevel, deficitMode } = s.nutrition
+        if (!weightKg) return { nutrition: { ...s.nutrition, goalType: newGoalType } }
+        const t = calcTargets(weightKg, activityLevel, deficitMode, newGoalType)
+        return {
+          nutrition: {
+            ...s.nutrition,
+            goalType: newGoalType,
+            dailyCalories: t.calories,
+            proteinTarget: t.protein,
+            carbTarget: t.carbs,
+            fatTarget: t.fat,
+            maintenanceCalories: t.maintenance,
+          }
+        }
+      }),
+
+      // Penalise going over daily calorie target — called from Diet on meal log
+      penalizeCalorieOverage: (totalCalories) => set((s) => {
+        const target = s.nutrition.dailyCalories
+        if (!target || totalCalories <= target) return {}
+        const overage = totalCalories - target
+        const alreadyPenalized = s.nutrition.caloriePenaltyDate === today()
+        if (alreadyPenalized) return {}
+
+        const hpLoss = Math.min(20, Math.floor(overage / 100) * 5) // -5 HP per 100 kcal over, max -20
+        const hp = Math.max(0, s.character.hp - hpLoss)
+        return {
+          character: { ...s.character, hp },
+          nutrition: { ...s.nutrition, caloriePenaltyDate: today() },
+          notifications: [...s.notifications, {
+            id: Date.now(), type: 'antagonist',
+            message: `${overage} kcal over target. -${hpLoss} HP. The body keeps score.`,
+          }]
+        }
+      }),
 
       gainXP: (amount, source = 'action') => set((s) => {
         const { character } = s

@@ -4,10 +4,123 @@ import PixelCharacter from '../character/PixelCharacter'
 import { getDailyCoachMessage } from '../../utils/ai'
 import { fetchFreshQuote } from '../../utils/quotes'
 import { ANTAGONIST, getPerformanceState, getWorstStreak, getWeekXP, getBestWeekXP, getTodayBonusChallenge, rollXPMultiplier } from '../../utils/antagonist'
+import { getTodayWorkout } from '../../data/workoutTemplates'
 
 function SeasonBadge({ season }) {
   const map = { spring: '🌸 Spring', summer: '🌿 Summer', autumn: '🍂 Autumn', winter: '❄️ Winter' }
   return <span className="text-xs text-slate-500">{map[season]}</span>
+}
+
+const MODE_CONFIG = {
+  lose:     { label: 'Cut',      color: '#ef4444', bg: 'bg-red-900',    border: 'border-red-600',    icon: '🔥', desc: 'Calorie deficit' },
+  maintain: { label: 'Maintain', color: '#f59e0b', bg: 'bg-amber-900',  border: 'border-amber-600',  icon: '⚖️', desc: 'At maintenance' },
+  bulk:     { label: 'Bulk',     color: '#10b981', bg: 'bg-emerald-900',border: 'border-emerald-600',icon: '💪', desc: 'Calorie surplus' },
+}
+
+function ModeSwitcher({ current, onSwitch, targets }) {
+  const [open, setOpen] = useState(false)
+  const cfg = MODE_CONFIG[current] || MODE_CONFIG.maintain
+
+  return (
+    <div className="relative">
+      <button
+        className={`flex items-center gap-2 px-3 py-2 rounded border text-xs transition-all ${cfg.border} ${cfg.bg}`}
+        onClick={() => setOpen(v => !v)}
+      >
+        <span>{cfg.icon}</span>
+        <span className="font-pixel" style={{ fontSize: '9px', color: cfg.color }}>{cfg.label}</span>
+        {targets?.dailyCalories > 0 && (
+          <span className="text-slate-400">{targets.dailyCalories} kcal</span>
+        )}
+        <span className="text-slate-500">▾</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 bg-rpg-panel border border-rpg-border rounded shadow-xl w-48">
+          {Object.entries(MODE_CONFIG).map(([key, m]) => (
+            <button
+              key={key}
+              className={`flex items-center gap-3 w-full px-4 py-3 text-left text-xs hover:bg-slate-800 ${current === key ? 'bg-slate-800' : ''}`}
+              onClick={() => { onSwitch(key); setOpen(false) }}
+            >
+              <span>{m.icon}</span>
+              <div>
+                <div className="font-pixel" style={{ fontSize: '9px', color: m.color }}>{m.label}</div>
+                <div className="text-slate-500">{m.desc}</div>
+              </div>
+              {current === key && <span className="ml-auto text-green-400">✓</span>}
+            </button>
+          ))}
+          {targets?.maintenanceCalories > 0 && (
+            <div className="px-4 py-2 border-t border-slate-800 text-xs text-slate-600">
+              Maintenance: {targets.maintenanceCalories} kcal
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TodayWorkoutCard({ program }) {
+  const [expanded, setExpanded] = useState(false)
+  const result = getTodayWorkout(program)
+  if (!result) return null
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const today = DAY_NAMES[new Date().getDay()]
+
+  if (!result.isTrainingDay) {
+    return (
+      <div className="rpg-panel p-4 border border-slate-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-pixel text-xs text-slate-500 mb-1" style={{ fontSize: '9px' }}>TODAY — {today.toUpperCase()}</div>
+            <div className="text-sm text-slate-400">Rest Day</div>
+            <div className="text-xs text-slate-600 mt-1">Next session: {result.nextTrainingDay}</div>
+          </div>
+          <span className="text-2xl">🛌</span>
+        </div>
+        {program?.cardioNote && (
+          <div className="text-xs text-amber-600 mt-2 border-t border-slate-800 pt-2">{program.cardioNote}</div>
+        )}
+      </div>
+    )
+  }
+
+  const { dayData, cardioNote } = result
+
+  return (
+    <div className="rpg-panel p-4 border border-violet-800">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="font-pixel text-xs text-violet-400 mb-1" style={{ fontSize: '9px' }}>TODAY — {today.toUpperCase()}</div>
+          <div className="text-sm text-slate-200">{dayData.label}</div>
+          <div className="text-xs text-slate-500">{dayData.exercises.length} exercises • {program?.name}</div>
+        </div>
+        <button className="text-xs text-slate-500 hover:text-slate-300" onClick={() => setExpanded(v => !v)}>
+          {expanded ? '▲' : '▼'}
+        </button>
+      </div>
+
+      {/* Preview — first 3 exercises always shown */}
+      <div className="space-y-1">
+        {dayData.exercises.slice(0, expanded ? 99 : 3).map((ex, i) => (
+          <div key={i} className="flex justify-between text-xs">
+            <span className="text-slate-300">{ex.name}</span>
+            <span className="text-slate-600">{ex.sets}×{ex.reps}</span>
+          </div>
+        ))}
+        {!expanded && dayData.exercises.length > 3 && (
+          <div className="text-xs text-slate-600">+{dayData.exercises.length - 3} more</div>
+        )}
+      </div>
+
+      {cardioNote && (
+        <div className="text-xs text-amber-600 mt-3 border-t border-slate-800 pt-2">🏃 {cardioNote}</div>
+      )}
+    </div>
+  )
 }
 
 function StatBar({ value, max, color, label }) {
@@ -286,7 +399,7 @@ export default function Dashboard() {
   const {
     character, habits, notifications, clearNotification, openaiKey,
     updateStreak, checkMilestones, nutrition, xpHistory, bestWeekXP,
-    updateBestWeekXP, completeHabit, gainXP, loseXP, checkOverdueTodos,
+    updateBestWeekXP, completeHabit, gainXP, loseXP, checkOverdueTodos, switchMode,
   } = useStore()
   const [coachMsg, setCoachMsg] = useState('')
   const season = getSeason()
@@ -332,10 +445,20 @@ export default function Dashboard() {
 
       <div className="flex items-center justify-between">
         <h1 className="font-pixel text-xs text-amber-400">DASHBOARD</h1>
-        <SeasonBadge season={season} />
+        <div className="flex items-center gap-2">
+          {nutrition?.weightKg > 0 && (
+            <ModeSwitcher current={nutrition.goalType || 'lose'} onSwitch={switchMode} targets={nutrition} />
+          )}
+          <SeasonBadge season={season} />
+        </div>
       </div>
 
       <CharacterCard character={character} season={season} performance={performance} />
+
+      {/* Today's recommended workout */}
+      {nutrition?.workoutProgramData && (
+        <TodayWorkoutCard program={nutrition.workoutProgramData} />
+      )}
 
       <WorstStreakBanner habits={habits} />
 

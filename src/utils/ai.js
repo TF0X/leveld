@@ -71,6 +71,17 @@ export async function getLevelUpMessage(apiKey, { character }) {
   return callOpenAI(apiKey, [{ role: 'system', content: sys }, { role: 'user', content: prompt }])
 }
 
+// Estimate macros from a text description — no photo needed
+export async function estimateFoodFromText(apiKey, description) {
+  const prompt = `You are a nutritionist. Estimate the macros for: "${description}"
+Return ONLY a JSON object — no markdown, no explanation:
+{"name": "food name", "calories": number, "protein_g": number, "carbs_g": number, "fat_g": number}
+Use common Indian portion sizes where relevant. Be accurate.`
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 150)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  return JSON.parse(cleaned)
+}
+
 export async function analyzeFoodPhoto(apiKey, imageBase64) {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',

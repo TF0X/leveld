@@ -478,3 +478,60 @@ export const PROGRESSION_RULES = [
   'Week 7: Maintain weight, focus on tempo and control',
   'Week 8: Deload — reduce volume 30-50%, focus on recovery',
 ]
+
+// Map daysPerWeek → which ISO weekdays (1=Mon … 7=Sun) are training days
+// Returns a Set of JS getDay() values (0=Sun, 1=Mon … 6=Sat)
+const DAY_SCHEDULES = {
+  2: new Set([1, 4]),               // Mon, Thu
+  3: new Set([1, 3, 5]),           // Mon, Wed, Fri
+  4: new Set([1, 2, 4, 5]),        // Mon, Tue, Thu, Fri
+  5: new Set([1, 2, 3, 4, 5]),     // Mon–Fri
+  6: new Set([1, 2, 3, 4, 5, 6]), // Mon–Sat
+  7: new Set([0, 1, 2, 3, 4, 5, 6]),
+}
+
+/**
+ * Given a program and today's Date, returns:
+ * { isTrainingDay, dayIndex (0-based into program.days), dayData, nextTrainingDay }
+ */
+export function getTodayWorkout(program) {
+  if (!program) return null
+
+  const jsDay = new Date().getDay() // 0=Sun … 6=Sat
+  const schedule = DAY_SCHEDULES[program.daysPerWeek] || DAY_SCHEDULES[3]
+
+  if (!schedule.has(jsDay)) {
+    // Rest day — find next training day
+    let next = null
+    for (let i = 1; i <= 7; i++) {
+      const d = (jsDay + i) % 7
+      if (schedule.has(d)) {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        next = days[d]
+        break
+      }
+    }
+    return { isTrainingDay: false, nextTrainingDay: next }
+  }
+
+  // Training day — figure out which day of the program this is
+  // Count how many training days have elapsed this week (Mon=week start)
+  const monOffset = jsDay === 0 ? 6 : jsDay - 1 // days since last Monday
+  let trainingDayIndex = 0
+  for (let i = 0; i <= monOffset; i++) {
+    const d = (1 + i) % 7 // start from Monday (1)
+    if (d === jsDay) break
+    if (schedule.has(d)) trainingDayIndex++
+  }
+
+  // Wrap to available program days (exclude pure rest days)
+  const trainingDays = program.days.filter(d => d.exercises.length > 0)
+  const dayData = trainingDays[trainingDayIndex % trainingDays.length] || trainingDays[0]
+
+  return {
+    isTrainingDay: true,
+    dayIndex: trainingDayIndex,
+    dayData,
+    cardioNote: program.cardioNote,
+  }
+}

@@ -93,24 +93,41 @@ export function calcMaintenance(weightKg, activityLevel) {
   return Math.round(bmr * (multipliers[activityLevel] || 1.375))
 }
 
+/**
+ * goal: 'lose' | 'bulk' | 'maintain'
+ * deficitMode: 'extreme' | 'easy'  (only relevant when goal='lose')
+ */
 export function calcTargets(weightKg, activityLevel, deficitMode, goal) {
   const maintenance = calcMaintenance(weightKg, activityLevel)
-  let calories
-  if (goal === 'lose') {
-    calories = deficitMode === 'extreme'
-      ? maintenance - 500
-      : maintenance - 350
-  } else if (goal === 'bulk') {
-    calories = maintenance + 350
-  } else {
-    calories = maintenance
-  }
-  calories = Math.max(1200, calories)
+  let calories, protein, fat, carbs
 
-  // Low-carb macro split (from Rohan's system)
-  const protein = Math.round(weightKg * 2.0)      // 2g/kg
-  const fat = Math.round((calories * 0.25) / 9)
-  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4)
+  if (goal === 'lose') {
+    // Cut: low-carb, high protein — from Rohan's Fat Loss Fuel System
+    calories = deficitMode === 'extreme'
+      ? maintenance - 500   // ~1 kg/week
+      : maintenance - 350   // ~0.5 kg/week
+    calories = Math.max(1200, calories)
+    protein = Math.round(weightKg * 2.2)          // 2.2g/kg — preserve muscle in deficit
+    fat     = Math.round((calories * 0.25) / 9)   // 25% calories from fat
+    carbs   = Math.round((calories - protein * 4 - fat * 9) / 4)
+
+  } else if (goal === 'bulk') {
+    // Bulk: moderate surplus, higher carbs for performance
+    calories = maintenance + 350                   // lean bulk ~0.3 kg/week
+    protein = Math.round(weightKg * 1.8)          // 1.8g/kg — still high
+    carbs   = Math.round((calories * 0.45) / 4)  // 45% from carbs for training fuel
+    fat     = Math.round((calories - protein * 4 - carbs * 4) / 9)
+
+  } else {
+    // Maintain: balanced split
+    calories = maintenance
+    protein = Math.round(weightKg * 1.8)
+    fat     = Math.round((calories * 0.30) / 9)
+    carbs   = Math.round((calories - protein * 4 - fat * 9) / 4)
+  }
+
+  carbs = Math.max(0, carbs)
+  fat   = Math.max(10, fat)
 
   return { maintenance, calories, protein, carbs, fat }
 }
