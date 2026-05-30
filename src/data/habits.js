@@ -13,7 +13,7 @@ export const GOAL_HABITS = {
     { name: 'Strength training session', frequency: 'daily', type: 'positive', category: 'training' },
     { name: 'Track sets, reps & weights', frequency: 'daily', type: 'positive', category: 'tracking' },
     { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive', category: 'recovery' },
-    { name: 'Eat calorie surplus today', frequency: 'daily', type: 'positive', category: 'nutrition' },
+    // Note: calorie habit is injected by switchMode based on active mode (surplus for bulk, deficit for cut)
   ],
   'Fix sleep': [
     { name: 'Sleep by 11pm', frequency: 'daily', type: 'positive', category: 'recovery' },

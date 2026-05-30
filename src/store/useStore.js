@@ -136,21 +136,69 @@ const useStore = create(
         nutrition: { ...s.nutrition, ...updates }
       })),
 
-      // Switch cut / maintain / bulk — recalculates all macro targets instantly
+      // Switch cut / maintain / bulk — recalculates targets AND fixes contradicting habits
       switchMode: (newGoalType) => set((s) => {
         const { weightKg, activityLevel, deficitMode } = s.nutrition
-        if (!weightKg) return { nutrition: { ...s.nutrition, goalType: newGoalType } }
-        const t = calcTargets(weightKg, activityLevel, deficitMode, newGoalType)
+        const t = weightKg
+          ? calcTargets(weightKg, activityLevel, deficitMode, newGoalType)
+          : null
+
+        // Habits that directly contradict a mode — remove them when switching away
+        const SURPLUS_KEYWORDS = ['calorie surplus', 'eat more calories', 'caloric surplus']
+        const DEFICIT_KEYWORDS = ['calorie deficit', 'stay in deficit', 'caloric deficit']
+        const TARGET_KEYWORDS  = ['hit calorie target', 'calorie target today']
+
+        // The correct nutrition habit for each mode
+        const MODE_HABITS = {
+          lose:     { id: 'mode_cal', name: 'Stay in calorie deficit today', type: 'positive', frequency: 'daily', category: 'nutrition' },
+          bulk:     { id: 'mode_cal', name: 'Eat calorie surplus today',      type: 'positive', frequency: 'daily', category: 'nutrition' },
+          maintain: { id: 'mode_cal', name: 'Hit calorie target today',       type: 'positive', frequency: 'daily', category: 'nutrition' },
+        }
+
+        const allConflictKeywords = [...SURPLUS_KEYWORDS, ...DEFICIT_KEYWORDS, ...TARGET_KEYWORDS]
+
+        // Remove any habits whose names contain a mode-specific calorie keyword
+        const filteredHabits = s.habits.filter(h =>
+          !allConflictKeywords.some(kw => h.name.toLowerCase().includes(kw))
+        )
+
+        // Only inject a replacement habit if user already had one of these (i.e. they care about it)
+        const hadCalorieHabit = s.habits.some(h =>
+          allConflictKeywords.some(kw => h.name.toLowerCase().includes(kw))
+        )
+
+        const newHabit = hadCalorieHabit ? {
+          ...MODE_HABITS[newGoalType],
+          id: Date.now(),
+          streak: 0,
+          completions: {},
+          skips: {},
+          createdAt: today(),
+        } : null
+
+        const updatedHabits = newHabit ? [...filteredHabits, newHabit] : filteredHabits
+
         return {
+          habits: updatedHabits,
           nutrition: {
             ...s.nutrition,
             goalType: newGoalType,
-            dailyCalories: t.calories,
-            proteinTarget: t.protein,
-            carbTarget: t.carbs,
-            fatTarget: t.fat,
-            maintenanceCalories: t.maintenance,
-          }
+            ...(t ? {
+              dailyCalories: t.calories,
+              proteinTarget:  t.protein,
+              carbTarget:     t.carbs,
+              fatTarget:      t.fat,
+              maintenanceCalories: t.maintenance,
+            } : {}),
+          },
+          notifications: [...s.notifications, {
+            id: Date.now(), type: 'antagonist',
+            message: newGoalType === 'lose'
+              ? 'Switched to Cut. Surplus habit removed. Deficit habit added.'
+              : newGoalType === 'bulk'
+              ? 'Switched to Bulk. Deficit habit removed. Surplus habit added.'
+              : 'Switched to Maintain. Calorie habit updated.',
+          }]
         }
       }),
 
