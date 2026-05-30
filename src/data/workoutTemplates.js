@@ -491,14 +491,18 @@ const DAY_SCHEDULES = {
 }
 
 /**
- * Given a program and today's Date, returns:
- * { isTrainingDay, dayIndex (0-based into program.days), dayData, nextTrainingDay }
+ * Given a program and optional customTrainingDays (array of JS getDay() values e.g. [1,3,5]),
+ * returns: { isTrainingDay, dayIndex, dayData, nextTrainingDay }
  */
-export function getTodayWorkout(program) {
+export function getTodayWorkout(program, customTrainingDays) {
   if (!program) return null
 
   const jsDay = new Date().getDay() // 0=Sun … 6=Sat
-  const schedule = DAY_SCHEDULES[program.daysPerWeek] || DAY_SCHEDULES[3]
+
+  // Use custom days if set, otherwise fall back to default schedule
+  const schedule = customTrainingDays && customTrainingDays.length
+    ? new Set(customTrainingDays)
+    : (DAY_SCHEDULES[program.daysPerWeek] || DAY_SCHEDULES[3])
 
   if (!schedule.has(jsDay)) {
     // Rest day — find next training day
@@ -515,14 +519,13 @@ export function getTodayWorkout(program) {
   }
 
   // Training day — figure out which day of the program this is
-  // Count how many training days have elapsed this week (Mon=week start)
-  const monOffset = jsDay === 0 ? 6 : jsDay - 1 // days since last Monday
-  let trainingDayIndex = 0
-  for (let i = 0; i <= monOffset; i++) {
-    const d = (1 + i) % 7 // start from Monday (1)
-    if (d === jsDay) break
-    if (schedule.has(d)) trainingDayIndex++
-  }
+  // Sort scheduled days and find the index of today within them
+  const sortedDays = [...schedule].sort((a, b) => {
+    // Sort Mon→Sun (treating Mon=0 for ordering)
+    const norm = d => (d === 0 ? 7 : d)
+    return norm(a) - norm(b)
+  })
+  const trainingDayIndex = sortedDays.indexOf(jsDay)
 
   // Wrap to available program days (exclude pure rest days)
   const trainingDays = program.days.filter(d => d.exercises.length > 0)

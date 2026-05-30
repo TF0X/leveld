@@ -81,6 +81,7 @@ const defaultState = {
     maintenanceCalories: 0,
     workoutProgram: null,         // selected template id
     workoutProgramData: null,     // full template object
+    customTrainingDays: null,     // [0-6] array of JS day numbers, null = use default schedule
     currentWeek: 1,
     weekStartDate: null,
     dietBreakActive: false,
@@ -349,6 +350,18 @@ const useStore = create(
           : s.nutrition
         return { dietLogs: [...s.dietLogs, newLog], nutrition }
       }),
+
+      setWorkoutProgram: (programData) => set((s) => ({
+        nutrition: {
+          ...s.nutrition,
+          workoutProgram: programData?.id || null,
+          workoutProgramData: programData || null,
+        }
+      })),
+
+      setCustomTrainingDays: (days) => set((s) => ({
+        nutrition: { ...s.nutrition, customTrainingDays: days }
+      })),
 
       logWorkout: (entry) => set((s) => ({
         workoutLogs: [...s.workoutLogs, { id: Date.now(), date: new Date().toISOString(), ...entry }]

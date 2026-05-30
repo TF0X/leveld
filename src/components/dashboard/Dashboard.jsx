@@ -62,9 +62,9 @@ function ModeSwitcher({ current, onSwitch, targets }) {
   )
 }
 
-function TodayWorkoutCard({ program }) {
+function TodayWorkoutCard({ program, customDays }) {
   const [expanded, setExpanded] = useState(false)
-  const result = getTodayWorkout(program)
+  const result = getTodayWorkout(program, customDays)
   if (!result) return null
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -457,7 +457,7 @@ export default function Dashboard() {
 
       {/* Today's recommended workout */}
       {nutrition?.workoutProgramData && (
-        <TodayWorkoutCard program={nutrition.workoutProgramData} />
+        <TodayWorkoutCard program={nutrition.workoutProgramData} customDays={nutrition?.customTrainingDays} />
       )}
 
       <WorstStreakBanner habits={habits} />

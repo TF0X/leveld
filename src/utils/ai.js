@@ -128,3 +128,40 @@ export async function getDietBreakMessage(apiKey, { character }) {
   const prompt = `${character.name} has earned a 7-day Diet Break after 14 days of aggressive deficit. Write 2 sentences explaining the strategic logic — hormones reset, metabolism recovers, performance returns. Make the warrior feel proud not guilty.`
   return callOpenAI(apiKey, [{ role: 'system', content: sys }, { role: 'user', content: prompt }])
 }
+
+/**
+ * Generate a full workout split based on available equipment.
+ * Returns: { name, daysPerWeek, cardioNote, days: [{ label, exercises: [{ name, sets, reps, muscleGroup }] }] }
+ */
+export async function generateExercisesFromEquipment(apiKey, { equipment, daysPerWeek, goal }) {
+  const goalDesc = goal === 'lose' ? 'fat loss (preserve muscle)' : goal === 'bulk' ? 'muscle building' : 'general fitness'
+  const prompt = `You are a strength & conditioning coach. Create a ${daysPerWeek}-day workout split for someone with ONLY this equipment: "${equipment}".
+Goal: ${goalDesc}.
+
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "name": "Custom ${equipment} Program",
+  "daysPerWeek": ${daysPerWeek},
+  "cardioNote": "brief cardio note",
+  "days": [
+    {
+      "label": "Day 1 — Muscle Group",
+      "exercises": [
+        { "name": "Exercise Name", "sets": 3, "reps": "8-12", "muscleGroup": "Chest" }
+      ]
+    }
+  ]
+}
+
+Rules:
+- ONLY include exercises possible with the listed equipment
+- 4-6 exercises per day
+- Include warm-up-friendly compound movements first
+- Sets: 2-4, Reps: expressed as range e.g. "8-12" or "10-15" or "30 sec"
+- Label days clearly (Push/Pull/Legs or Upper/Lower or muscle group names)
+- cardioNote: one line for post-session cardio recommendation`
+
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o', 1200)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  return JSON.parse(cleaned)
+}

@@ -1,10 +1,21 @@
 import React, { useState } from 'react'
 import useStore from '../../store/useStore'
-import { PROGRESSION_RULES, getTodayWorkout } from '../../data/workoutTemplates'
+import { ALL_TEMPLATES, PROGRESSION_RULES, getTodayWorkout } from '../../data/workoutTemplates'
+import { generateExercisesFromEquipment } from '../../utils/ai'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid,
 } from 'recharts'
+
+const JS_DAYS = [
+  { id: 1, label: 'Mon' },
+  { id: 2, label: 'Tue' },
+  { id: 3, label: 'Wed' },
+  { id: 4, label: 'Thu' },
+  { id: 5, label: 'Fri' },
+  { id: 6, label: 'Sat' },
+  { id: 0, label: 'Sun' },
+]
 
 const EXERCISES = [
   'Push-ups', 'Pull-ups', 'Squats', 'Deadlift', 'Bench Press',
@@ -233,8 +244,234 @@ function WorkoutProgramCard({ program }) {
   )
 }
 
-function TodaySessionBanner({ program, onStartSession }) {
-  const result = getTodayWorkout(program)
+// ─── Program Switcher Modal ─────────────────────────────────────────────────
+function ProgramSwitcher({ current, onSelect, onClose }) {
+  const gender = 'men' // fallback; in practice read from character
+  const [tab, setTab] = useState('library')
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center p-0">
+      <div className="bg-rpg-panel w-full max-w-lg rounded-t-xl border-t border-rpg-border max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-rpg-border">
+          <span className="font-pixel text-xs text-amber-400">CHANGE PROGRAM</span>
+          <button className="text-slate-500 hover:text-slate-300" onClick={onClose}>✕</button>
+        </div>
+        <div className="flex gap-1 p-3">
+          {['library', 'custom'].map(t => (
+            <button key={t} className={`flex-1 text-xs py-2 rounded border ${tab === t ? 'border-violet-500 bg-violet-900 text-white' : 'border-slate-700 text-slate-500'}`} onClick={() => setTab(t)}>
+              {t === 'library' ? '📚 Pre-built Templates' : '🤖 AI Custom Build'}
+            </button>
+          ))}
+        </div>
+        {tab === 'library' && (
+          <div className="p-3 space-y-2">
+            {ALL_TEMPLATES.map(t => (
+              <div key={t.id}
+                className={`rpg-panel p-4 cursor-pointer border-2 transition-all ${current?.id === t.id ? 'border-violet-500' : 'border-transparent hover:border-slate-600'}`}
+                onClick={() => { onSelect(t); onClose() }}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-pixel text-xs text-violet-400 mb-1" style={{ fontSize: '9px' }}>{t.name} ({t.gender})</div>
+                    <div className="text-xs text-slate-300 mb-1">{t.description}</div>
+                    <div className="flex gap-3 text-xs text-slate-500">
+                      <span>📅 {t.daysPerWeek}d/week</span>
+                      <span>📊 {t.level}</span>
+                      <span>🏋️ {t.equipment}</span>
+                    </div>
+                  </div>
+                  {current?.id === t.id && <span className="text-green-400 text-xs">✓</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {tab === 'custom' && <AICustomBuilder onSelect={t => { onSelect(t); onClose() }} />}
+      </div>
+    </div>
+  )
+}
+
+// ─── AI Custom Builder ──────────────────────────────────────────────────────
+function AICustomBuilder({ onSelect }) {
+  const { openaiKey, nutrition } = useStore()
+  const [equipment, setEquipment] = useState('')
+  const [daysPerWeek, setDaysPerWeek] = useState(3)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [generatedProgram, setGeneratedProgram] = useState(null)
+  // checklist: { dayIdx, exIdx } → enabled bool
+  const [enabled, setEnabled] = useState({})
+
+  const generate = async () => {
+    if (!equipment.trim()) return
+    if (!openaiKey) { setError('Add your OpenAI key in Settings first.'); return }
+    setGenerating(true)
+    setError('')
+    setGeneratedProgram(null)
+    try {
+      const prog = await generateExercisesFromEquipment(openaiKey, {
+        equipment: equipment.trim(),
+        daysPerWeek,
+        goal: nutrition?.goalType || 'lose',
+      })
+      setGeneratedProgram(prog)
+      // Default: all exercises enabled
+      const init = {}
+      prog.days.forEach((day, di) => {
+        day.exercises.forEach((_, ei) => { init[`${di}-${ei}`] = true })
+      })
+      setEnabled(init)
+    } catch (e) {
+      setError('AI generation failed. Check your API key or try again.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const toggle = (di, ei) => {
+    const key = `${di}-${ei}`
+    setEnabled(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const confirmProgram = () => {
+    if (!generatedProgram) return
+    // Filter to only enabled exercises per day
+    const filtered = {
+      ...generatedProgram,
+      id: `custom_${Date.now()}`,
+      days: generatedProgram.days.map((day, di) => ({
+        ...day,
+        exercises: day.exercises.filter((_, ei) => enabled[`${di}-${ei}`] !== false),
+      })).filter(d => d.exercises.length > 0),
+    }
+    onSelect(filtered)
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="rpg-panel p-3 text-xs text-slate-400 leading-relaxed">
+        Describe what equipment you have. AI will generate a program with only those exercises.
+      </div>
+      <div>
+        <label className="text-xs text-slate-400 block mb-1">Your Equipment</label>
+        <input
+          type="text"
+          placeholder="e.g. dumbbells and a bench, resistance bands, barbell + squat rack..."
+          value={equipment}
+          onChange={e => setEquipment(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="text-xs text-slate-400 block mb-2">Days per week</label>
+        <div className="flex gap-2">
+          {[2, 3, 4, 5, 6].map(n => (
+            <button key={n}
+              className={`flex-1 py-2 text-xs rounded border ${daysPerWeek === n ? 'border-violet-500 bg-violet-900 text-white' : 'border-slate-700 text-slate-500'}`}
+              onClick={() => setDaysPerWeek(n)}>{n}</button>
+          ))}
+        </div>
+      </div>
+      {error && <div className="text-xs text-red-400 bg-red-950 rounded p-2">{error}</div>}
+      {!generatedProgram && (
+        <button className="rpg-btn-primary w-full" onClick={generate} disabled={generating || !equipment.trim()}>
+          {generating ? '⏳ Generating your program...' : '✨ Generate with AI'}
+        </button>
+      )}
+
+      {generatedProgram && (
+        <div className="space-y-4">
+          <div className="font-pixel text-xs text-violet-400" style={{ fontSize: '9px' }}>
+            TICK THE EXERCISES YOU WANT
+          </div>
+          {generatedProgram.days.map((day, di) => (
+            <div key={di} className="rpg-panel p-4">
+              <div className="font-pixel text-xs text-amber-400 mb-3" style={{ fontSize: '9px' }}>{day.label}</div>
+              <div className="space-y-2">
+                {day.exercises.map((ex, ei) => {
+                  const key = `${di}-${ei}`
+                  const isOn = enabled[key] !== false
+                  return (
+                    <div key={ei} className={`flex items-center gap-3 p-2 rounded border transition-all ${isOn ? 'border-violet-600' : 'border-slate-800 opacity-40'}`}>
+                      <button
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center text-xs flex-shrink-0 ${isOn ? 'bg-violet-500 border-violet-400' : 'border-slate-700'}`}
+                        onClick={() => toggle(di, ei)}
+                      >
+                        {isOn ? '✓' : ''}
+                      </button>
+                      <div className="flex-1">
+                        <div className="text-xs text-slate-200">{ex.name}</div>
+                        <div className="text-xs text-slate-500">{ex.muscleGroup}</div>
+                      </div>
+                      <div className="text-xs text-slate-600">{ex.sets}×{ex.reps}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <button className="rpg-btn-secondary flex-1 text-xs" onClick={() => setGeneratedProgram(null)}>Regenerate</button>
+            <button className="rpg-btn-primary flex-1" onClick={confirmProgram}>Use This Program</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Custom Day Picker ──────────────────────────────────────────────────────
+function DayPicker({ customDays, program, onSave, onClose }) {
+  const [selected, setSelected] = useState(customDays || [])
+  const needed = program?.daysPerWeek || 3
+
+  const toggle = (id) => {
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
+    )
+  }
+
+  const sorted = [...selected].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center">
+      <div className="bg-rpg-panel w-full max-w-lg rounded-t-xl border-t border-rpg-border p-5">
+        <div className="flex justify-between items-center mb-4">
+          <span className="font-pixel text-xs text-amber-400">TRAINING DAYS</span>
+          <button className="text-slate-500" onClick={onClose}>✕</button>
+        </div>
+        <div className="text-xs text-slate-400 mb-4">
+          Pick exactly {needed} days. Current: {selected.length}/{needed}
+        </div>
+        <div className="grid grid-cols-7 gap-1 mb-4">
+          {JS_DAYS.map(d => {
+            const isOn = selected.includes(d.id)
+            return (
+              <button key={d.id}
+                className={`py-3 rounded border text-xs font-pixel transition-all ${isOn ? 'border-violet-500 bg-violet-900 text-white' : 'border-slate-700 text-slate-500 hover:border-slate-500'}`}
+                style={{ fontSize: '9px' }}
+                onClick={() => toggle(d.id)}
+              >
+                {d.label}
+              </button>
+            )
+          })}
+        </div>
+        {selected.length > 0 && (
+          <div className="text-xs text-slate-500 mb-4">
+            Schedule: {sorted.map(id => JS_DAYS.find(d => d.id === id)?.label).join(' · ')}
+          </div>
+        )}
+        <div className="flex gap-3">
+          <button className="rpg-btn-secondary flex-1 text-xs" onClick={() => { onSave(null); onClose() }}>Reset to Default</button>
+          <button className="rpg-btn-primary flex-1" onClick={() => { onSave(sorted); onClose() }} disabled={selected.length === 0}>Save Days</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TodaySessionBanner({ program, customDays, onStartSession }) {
+  const result = getTodayWorkout(program, customDays)
   if (!result) return null
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -288,14 +525,18 @@ function TodaySessionBanner({ program, onStartSession }) {
 }
 
 export default function Workout() {
-  const { workoutLogs, logWorkout, gainXP, nutrition } = useStore()
+  const { workoutLogs, logWorkout, gainXP, nutrition, setWorkoutProgram, setCustomTrainingDays } = useStore()
   const program = nutrition?.workoutProgramData || null
+  const customDays = nutrition?.customTrainingDays || null
+
   const [active, setActive] = useState(false)
   const [exercises, setExercises] = useState([])
   const [duration, setDuration] = useState('')
   const [selectedExercise, setSelectedExercise] = useState('')
   const [customExercise, setCustomExercise] = useState('')
-  const [showGraphs, setShowGraphs] = useState(true)
+  const [showGraphs, setShowGraphs] = useState(false)
+  const [showProgramSwitcher, setShowProgramSwitcher] = useState(false)
+  const [showDayPicker, setShowDayPicker] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = workoutLogs.filter(l => l.date.startsWith(today))
@@ -348,24 +589,61 @@ export default function Workout() {
     <div className="space-y-4 pb-6">
       <div className="flex items-center justify-between">
         <h1 className="font-pixel text-xs text-amber-400">WORKOUT</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-1 flex-wrap justify-end">
+          <button className="text-xs px-2 py-1 rounded border border-slate-700 text-slate-400 hover:border-violet-500" onClick={() => setShowProgramSwitcher(true)}>
+            🔄 Program
+          </button>
+          {program && (
+            <button className="text-xs px-2 py-1 rounded border border-slate-700 text-slate-400 hover:border-amber-500" onClick={() => setShowDayPicker(true)}>
+              📅 Days
+            </button>
+          )}
           {workoutLogs.length > 0 && (
-            <button
-              className={`text-xs px-3 py-1 rounded border ${showGraphs ? 'border-violet-500 bg-violet-900 text-violet-300' : 'border-slate-700 text-slate-500'}`}
-              onClick={() => setShowGraphs(v => !v)}
-            >
-              📊 Stats
+            <button className={`text-xs px-2 py-1 rounded border ${showGraphs ? 'border-violet-500 bg-violet-900 text-violet-300' : 'border-slate-700 text-slate-500'}`} onClick={() => setShowGraphs(v => !v)}>
+              📊
             </button>
           )}
           {!active && (
-            <button className="rpg-btn-primary text-xs px-3 py-2" onClick={() => setActive(true)}>+ Start</button>
+            <button className="rpg-btn-primary text-xs px-3 py-1.5" onClick={() => setActive(true)}>+ Start</button>
           )}
         </div>
       </div>
 
+      {/* Modals */}
+      {showProgramSwitcher && (
+        <ProgramSwitcher
+          current={program}
+          onSelect={setWorkoutProgram}
+          onClose={() => setShowProgramSwitcher(false)}
+        />
+      )}
+      {showDayPicker && (
+        <DayPicker
+          customDays={customDays}
+          program={program}
+          onSave={setCustomTrainingDays}
+          onClose={() => setShowDayPicker(false)}
+        />
+      )}
+
+      {/* Current program info strip */}
+      {program && !active && (
+        <div className="rpg-panel px-4 py-2 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-400">{program.name}</span>
+            {customDays && (
+              <span className="text-xs text-violet-400 ml-2">
+                · {[...customDays].sort((a,b)=>(a===0?7:a)-(b===0?7:b)).map(id => JS_DAYS.find(d=>d.id===id)?.label).join('/')}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-slate-600">{program.daysPerWeek}d/wk · {program.level}</span>
+        </div>
+      )}
+
       {/* Today's recommended session — shown when not active and no log yet */}
       {program && !active && todayLogs.length === 0 && (
-        <TodaySessionBanner program={program} onStartSession={startFromPlan} />
+        <TodaySessionBanner program={program} customDays={customDays} onStartSession={startFromPlan} />
       )}
 
       {/* Full program card (collapsible) */}
