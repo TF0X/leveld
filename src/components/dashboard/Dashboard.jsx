@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import useStore, { xpForLevel, getTier, getStreakMultiplier, getSeason } from '../../store/useStore'
 import PixelCharacter from '../character/PixelCharacter'
-import { getDailyCoachMessage } from '../../utils/ai'
+import { getDailyCoachMessage, generateWeeklyTitle } from '../../utils/ai'
 import { fetchFreshQuote } from '../../utils/quotes'
 import { ANTAGONIST, getPerformanceState, getWorstStreak, getWeekXP, getBestWeekXP, getTodayBonusChallenge, rollXPMultiplier } from '../../utils/antagonist'
 import { getTodayWorkout } from '../../data/workoutTemplates'
+
+function getWeekKey() {
+  const d = new Date()
+  d.setDate(d.getDate() - d.getDay())
+  return d.toISOString().split('T')[0]
+}
 
 function SeasonBadge({ season }) {
   const map = { spring: '🌸 Spring', summer: '🌿 Summer', autumn: '🍂 Autumn', winter: '❄️ Winter' }
@@ -304,7 +310,10 @@ function QuoteBanner() {
 
 function QuestList({ habits, gainXP, completeHabit, loseXP }) {
   const today = new Date().toISOString().split('T')[0]
-  const dailyHabits = habits.filter(h => h.frequency === 'daily')
+  const todayDay = new Date().getDay()
+  const dailyHabits = habits.filter(h =>
+    h.frequency === 'daily' && (!h.days?.length || h.days.includes(todayDay))
+  )
   const [xpPop, setXpPop] = useState(null)
   const [multiplierReveal, setMultiplierReveal] = useState(null)
 
@@ -395,14 +404,22 @@ function NotificationToast({ notifications, onDismiss }) {
   )
 }
 
+const TITLE_COLORS = {
+  positive: { text: 'text-green-400', border: 'border-green-800', bg: 'bg-green-950' },
+  negative: { text: 'text-red-400',   border: 'border-red-900',   bg: 'bg-red-950'   },
+  neutral:  { text: 'text-amber-400', border: 'border-amber-800', bg: 'bg-amber-950' },
+}
+
 export default function Dashboard() {
   const {
     character, habits, notifications, clearNotification, openaiKey,
     updateStreak, checkMilestones, nutrition, xpHistory, bestWeekXP,
     updateBestWeekXP, completeHabit, gainXP, loseXP, checkOverdueTodos, switchMode,
+    weeklyTitle, setWeeklyTitle, workoutLogs, cravings,
   } = useStore()
   const [coachMsg, setCoachMsg] = useState('')
   const season = getSeason()
+  const weekKey = getWeekKey()
 
   const performance = getPerformanceState(habits, xpHistory)
   const currentWeekXP = getWeekXP(xpHistory)
@@ -413,6 +430,47 @@ export default function Dashboard() {
     checkOverdueTodos()
     updateBestWeekXP(currentWeekXP)
   }, [])
+
+  // Weekly performance title
+  useEffect(() => {
+    if (!openaiKey || !character.class) return
+    if (weeklyTitle?.weekKey === weekKey) return
+    const cacheKey = `weekly_title_${weekKey}`
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      try { setWeeklyTitle({ ...JSON.parse(cached), weekKey }); return } catch (e) {}
+    }
+    // Compute stats for this week
+    const ws = new Date(weekKey)
+    const we = new Date(ws); we.setDate(we.getDate() + 7)
+    const todayStr = new Date().toISOString().split('T')[0]
+    const todayDay = new Date().getDay()
+
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(ws); d.setDate(d.getDate() + i)
+      return d.toISOString().split('T')[0]
+    }).filter(d => d <= todayStr)
+
+    const dailyHabits = habits.filter(h => h.frequency === 'daily' && h.type === 'positive')
+    const totalPossible = weekDays.length * dailyHabits.length || 1
+    const totalDone = weekDays.reduce((acc, d) => acc + dailyHabits.filter(h => h.completions?.[d]).length, 0)
+    const habitsCompletedPct = Math.round((totalDone / totalPossible) * 100)
+
+    const workoutsThisWeek = (workoutLogs || []).filter(l => l.date >= ws.toISOString() && l.date < we.toISOString()).length
+    const cravingsResisted = (cravings || []).filter(c => c.resisted && c.date >= ws.toISOString()).length
+    const negativeDays = weekDays.filter(d => {
+      const done = dailyHabits.filter(h => h.completions?.[d]).length
+      return dailyHabits.length > 0 && done / dailyHabits.length < 0.5
+    }).length
+
+    generateWeeklyTitle(openaiKey, { character, stats: { habitsCompletedPct, workoutsThisWeek, cravingsResisted, negativeDays } })
+      .then(t => {
+        const full = { ...t, weekKey }
+        setWeeklyTitle(full)
+        localStorage.setItem(cacheKey, JSON.stringify(t))
+      })
+      .catch(() => {})
+  }, [openaiKey, character.class, weekKey])
 
   useEffect(() => {
     if (!openaiKey || !character.class) return
@@ -452,6 +510,17 @@ export default function Dashboard() {
           <SeasonBadge season={season} />
         </div>
       </div>
+
+      {/* Weekly title */}
+      {weeklyTitle?.weekKey === weekKey && (() => {
+        const cfg = TITLE_COLORS[weeklyTitle.sentiment] || TITLE_COLORS.neutral
+        return (
+          <div className={`rpg-panel px-4 py-2 border ${cfg.border} ${cfg.bg} flex items-center justify-between`}>
+            <span className={`font-pixel text-xs ${cfg.text}`} style={{ fontSize: '9px' }}>{weeklyTitle.title}</span>
+            <span className="text-xs text-slate-600">This Week</span>
+          </div>
+        )
+      })()}
 
       <CharacterCard character={character} season={season} performance={performance} />
 

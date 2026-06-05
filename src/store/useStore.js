@@ -118,6 +118,10 @@ const defaultState = {
   xpHistory: [],
   notifications: [],
   bestWeekXP: 0,
+  weeklyBoss: null,
+  dailyQuests: null,   // { date, quests: [] }
+  weeklyQuest: null,   // { weekKey, title, description, category, completed, progress }
+  weeklyTitle: null,   // { weekKey, title, sentiment }
 }
 
 const useStore = create(
@@ -559,13 +563,56 @@ const useStore = create(
         const cls = get().character.class
         return { Warrior: 'Marcus Aurelius', Mage: 'Epictetus', Rogue: 'Seneca' }[cls] || 'Marcus Aurelius'
       },
+
+      setWeeklyBoss: (boss) => set({ weeklyBoss: { workoutBonus: 0, ...boss } }),
+
+      dealWeeklyBossDamage: (pct) => set((s) => {
+        if (!s.weeklyBoss) return {}
+        const d = today()
+        const dmg = Math.round((pct / 100) * (100 / 7) * 10) / 10
+        const dailyDamage = { ...(s.weeklyBoss.dailyDamage || {}), [d]: dmg }
+        const habitDamage = Object.values(dailyDamage).reduce((a, b) => a + b, 0)
+        const workoutBonus = s.weeklyBoss.workoutBonus || 0
+        const totalDamage = Math.min(100, habitDamage + workoutBonus)
+        return { weeklyBoss: { ...s.weeklyBoss, dailyDamage, totalDamage } }
+      }),
+
+      dealWorkoutBossDamage: () => set((s) => {
+        if (!s.weeklyBoss) return {}
+        const workoutBonus = Math.min(28, (s.weeklyBoss.workoutBonus || 0) + 7)
+        const habitDamage = Object.values(s.weeklyBoss.dailyDamage || {}).reduce((a, b) => a + b, 0)
+        const totalDamage = Math.min(100, habitDamage + workoutBonus)
+        return { weeklyBoss: { ...s.weeklyBoss, workoutBonus, totalDamage } }
+      }),
+
+      setDailyQuests: (dateStr, quests) => set({ dailyQuests: { date: dateStr, quests } }),
+
+      completeDailyQuest: (questId) => set((s) => {
+        if (!s.dailyQuests) return {}
+        return {
+          dailyQuests: {
+            ...s.dailyQuests,
+            quests: s.dailyQuests.quests.map(q => q.id === questId ? { ...q, completed: true } : q),
+          }
+        }
+      }),
+
+      setWeeklyQuest: (quest) => set({ weeklyQuest: quest }),
+
+      completeWeeklyQuest: () => set((s) => ({
+        weeklyQuest: s.weeklyQuest ? { ...s.weeklyQuest, completed: true, progress: 100 } : null,
+      })),
+
+      setWeeklyTitle: (titleObj) => set({ weeklyTitle: titleObj }),
     }),
     {
       name: 'ascendrpg-v1',
-      version: 3,
+      version: 5,
       migrate: (persisted, version) => {
         if (version < 2) return { ...persisted, nutrition: defaultState.nutrition, gut: defaultState.gut, weightLogs: [] }
         if (version < 3) return { ...persisted, todos: [], inventory: [], bestWeekXP: 0 }
+        if (version < 4) return { ...persisted, weeklyBoss: null }
+        if (version < 5) return { ...persisted, dailyQuests: null, weeklyQuest: null, weeklyTitle: null }
         return persisted
       },
     }

@@ -129,6 +129,87 @@ export async function getDietBreakMessage(apiKey, { character }) {
   return callOpenAI(apiKey, [{ role: 'system', content: sys }, { role: 'user', content: prompt }])
 }
 
+export async function generateDailyQuests(apiKey, { character, dateStr }) {
+  const prompt = `Generate 4 short daily quests for ${character.name} (Level ${character.level} ${character.class}).
+One per category: social, diet, hobby, control. Make them specific and achievable in one day.
+
+Return ONLY valid JSON array, no markdown:
+[
+  { "category": "social",  "title": "quest in 8 words max" },
+  { "category": "diet",    "title": "quest in 8 words max" },
+  { "category": "hobby",   "title": "quest in 8 words max" },
+  { "category": "control", "title": "quest in 8 words max" }
+]
+
+social=connection/limits, diet=food/water/macros, hobby=skill/learning/creativity, control=willpower/sleep/focus.
+Warrior: physical bias. Mage: learning bias. Rogue: stealth/consistency bias.`
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 300)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  const items = JSON.parse(cleaned)
+  return items.map(q => ({ ...q, id: `${dateStr}_${q.category}`, isAI: true, completed: false }))
+}
+
+export async function generateWeeklyQuest(apiKey, { character, weekKey }) {
+  const prompt = `Generate one hard weekly challenge quest for ${character.name} (Level ${character.level} ${character.class}), week of ${weekKey}.
+Multi-day, requires consistent effort. Ties to real discipline or health habit.
+
+Return ONLY valid JSON, no markdown:
+{
+  "title": "Epic quest title (5-7 words)",
+  "description": "What must be done this week (1-2 sentences, specific and class-appropriate)",
+  "category": "physical|mental|discipline|social"
+}
+
+Examples: no junk food for 7 days, meditate every morning, hit step goal 5 days, call 3 people this week.`
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 250)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  const data = JSON.parse(cleaned)
+  return { ...data, weekKey, completed: false, progress: 0 }
+}
+
+export async function generateWeeklyTitle(apiKey, { character, stats }) {
+  const prompt = `Generate a dramatic one-line RPG title for ${character.name}'s week.
+Stats this week: habits ${stats.habitsCompletedPct}% done, workouts: ${stats.workoutsThisWeek}, cravings resisted: ${stats.cravingsResisted}, bad days: ${stats.negativeDays}.
+
+Return ONLY valid JSON, no markdown:
+{ "title": "The [Adj] [Noun] (3-5 words)", "sentiment": "positive|negative|neutral" }
+
+>=70% = positive ("The Iron Discipline", "The Unbroken Fortress"), <40% = negative ("The Week of Soft Excuses", "The Stagnant Swamp"), else neutral ("The Unsteady Climb").`
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 100)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  return JSON.parse(cleaned)
+}
+
+export async function generateWeeklyBoss(apiKey, { character, weekKey }) {
+  const prompt = `Generate a unique weekly RPG boss monster for a self-improvement game. Week: ${weekKey}. Player class: ${character.class}.
+The monster embodies the player's laziness, excuses, junk food, and skipped routines. Make it feel personal and threatening.
+
+Return ONLY valid JSON, no markdown, no extra text:
+{
+  "name": "The [Adjective] [CreatureName]",
+  "type": "golem|dragon|specter|demon|beast",
+  "lore": "One sentence about what bad habit or failure this monster was born from.",
+  "weakness": "2-3 words naming its weakness (e.g. Morning Routines, Deep Sleep, Consistent Effort)",
+  "palette": {
+    "body": "#hexcolor",
+    "accent": "#hexcolor",
+    "eye": "#hexcolor",
+    "glow": "#hexcolor"
+  }
+}
+
+Rules:
+- type must be exactly one of: golem, dragon, specter, demon, beast
+- palette must be dark and sinister — deep purples, sickly greens, blood reds, ashen grays
+- name must feel like a real villain boss (e.g. "The Calcified Sloth Titan", "The Midnight Craving Wraith")
+- lore ties the monster to a real bad habit: skipped workouts, late night snacking, broken sleep
+- weakness ties to a real positive habit or discipline`
+
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 350)
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  return JSON.parse(cleaned)
+}
+
 /**
  * Generate a full workout split based on available equipment.
  * Returns: { name, daysPerWeek, cardioNote, days: [{ label, exercises: [{ name, sets, reps, muscleGroup }] }] }

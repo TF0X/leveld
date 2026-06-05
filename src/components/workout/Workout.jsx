@@ -525,7 +525,7 @@ function TodaySessionBanner({ program, customDays, onStartSession }) {
 }
 
 export default function Workout() {
-  const { workoutLogs, logWorkout, gainXP, nutrition, setWorkoutProgram, setCustomTrainingDays } = useStore()
+  const { workoutLogs, logWorkout, gainXP, nutrition, setWorkoutProgram, setCustomTrainingDays, dealWorkoutBossDamage } = useStore()
   const program = nutrition?.workoutProgramData || null
   const customDays = nutrition?.customTrainingDays || null
 
@@ -580,6 +580,7 @@ export default function Workout() {
     const volume = exercises.reduce((acc, ex) => acc + ex.sets.reduce((a, s) => a + s.reps * s.weight, 0), 0)
     logWorkout({ exercises, duration: +duration, volume })
     gainXP(40, 'workout')
+    dealWorkoutBossDamage()
     setExercises([])
     setDuration('')
     setActive(false)
