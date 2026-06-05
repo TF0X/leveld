@@ -119,9 +119,11 @@ const defaultState = {
   notifications: [],
   bestWeekXP: 0,
   weeklyBoss: null,
-  dailyQuests: null,   // { date, quests: [] }
-  weeklyQuest: null,   // { weekKey, title, description, category, completed, progress }
-  weeklyTitle: null,   // { weekKey, title, sentiment }
+  dailyQuests: null,      // { date, quests: [] }
+  weeklyQuest: null,      // { weekKey, tasks: [{ id, title, description, category, completed }] }
+  weeklyTitle: null,      // { weekKey, title, sentiment }
+  dailyBossPenaltyDate: null,    // last date penalty was applied
+  weeklyBossExpiryChecked: null, // last weekKey expiry was checked
 }
 
 const useStore = create(
@@ -599,20 +601,87 @@ const useStore = create(
 
       setWeeklyQuest: (quest) => set({ weeklyQuest: quest }),
 
-      completeWeeklyQuest: () => set((s) => ({
-        weeklyQuest: s.weeklyQuest ? { ...s.weeklyQuest, completed: true, progress: 100 } : null,
-      })),
+      completeWeeklyTask: (taskId) => set((s) => {
+        if (!s.weeklyQuest?.tasks) return {}
+        const tasks = s.weeklyQuest.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t)
+        return { weeklyQuest: { ...s.weeklyQuest, tasks } }
+      }),
+
+      // Called on app open — if yesterday's daily boss wasn't killed, deal HP damage
+      checkDailyBossExpiry: () => set((s) => {
+        const d = today()
+        if (s.dailyBossPenaltyDate === d) return {}
+
+        const yesterday = (() => {
+          const dt = new Date(); dt.setDate(dt.getDate() - 1)
+          return dt.toISOString().split('T')[0]
+        })()
+
+        // Yesterday's quests
+        const yQuests = s.dailyQuests?.date === yesterday ? (s.dailyQuests.quests || []) : []
+        const qTotal = yQuests.length
+        const qDone = yQuests.filter(q => q.completed).length
+        const questPct = qTotal ? (qDone / qTotal) * 100 : 100
+
+        // Yesterday's habits
+        const yDay = new Date(yesterday).getDay()
+        const dailyHabits = s.habits.filter(h =>
+          h.type === 'positive' && (!h.days?.length || h.days.includes(yDay))
+        )
+        const hTotal = dailyHabits.length
+        const hDone = dailyHabits.filter(h => h.completions?.[yesterday]).length
+        const habitPct = hTotal ? (hDone / hTotal) * 100 : 100
+
+        const combined = (questPct + habitPct) / 2
+
+        // No quests AND no habits yesterday → no penalty
+        if (qTotal === 0 && hTotal === 0) return { dailyBossPenaltyDate: d }
+
+        if (combined >= 100) return { dailyBossPenaltyDate: d }
+
+        const bossHPLeft = 100 - combined
+        const hpLoss = Math.max(5, Math.round(bossHPLeft / 8))
+        return {
+          character: { ...s.character, hp: Math.max(0, s.character.hp - hpLoss) },
+          dailyBossPenaltyDate: d,
+          notifications: [...s.notifications, {
+            id: Date.now(), type: 'antagonist',
+            message: `Yesterday's enemy escaped. -${hpLoss} HP. Finish the job next time.`,
+          }],
+        }
+      }),
+
+      // Called on app open — if last week's boss wasn't killed, deal HP damage
+      checkWeeklyBossExpiry: () => set((s) => {
+        const ws = weekStart()
+        if (s.weeklyBossExpiryChecked === ws) return {}
+        if (!s.weeklyBoss || s.weeklyBoss.weekKey === ws) return { weeklyBossExpiryChecked: ws }
+
+        const bossHP = Math.round(100 - (s.weeklyBoss.totalDamage || 0))
+        if (bossHP <= 0) return { weeklyBossExpiryChecked: ws }
+
+        const hpLoss = Math.max(10, Math.round(bossHP / 4))
+        return {
+          character: { ...s.character, hp: Math.max(0, s.character.hp - hpLoss) },
+          weeklyBossExpiryChecked: ws,
+          notifications: [...s.notifications, {
+            id: Date.now(), type: 'antagonist',
+            message: `Weekly boss survived. -${hpLoss} HP. It fed on your weakness all week.`,
+          }],
+        }
+      }),
 
       setWeeklyTitle: (titleObj) => set({ weeklyTitle: titleObj }),
     }),
     {
       name: 'ascendrpg-v1',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         if (version < 2) return { ...persisted, nutrition: defaultState.nutrition, gut: defaultState.gut, weightLogs: [] }
         if (version < 3) return { ...persisted, todos: [], inventory: [], bestWeekXP: 0 }
         if (version < 4) return { ...persisted, weeklyBoss: null }
         if (version < 5) return { ...persisted, dailyQuests: null, weeklyQuest: null, weeklyTitle: null }
+        if (version < 6) return { ...persisted, dailyBossPenaltyDate: null, weeklyBossExpiryChecked: null }
         return persisted
       },
     }

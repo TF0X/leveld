@@ -149,22 +149,28 @@ Warrior: physical bias. Mage: learning bias. Rogue: stealth/consistency bias.`
   return items.map(q => ({ ...q, id: `${dateStr}_${q.category}`, isAI: true, completed: false }))
 }
 
-export async function generateWeeklyQuest(apiKey, { character, weekKey }) {
-  const prompt = `Generate one hard weekly challenge quest for ${character.name} (Level ${character.level} ${character.class}), week of ${weekKey}.
-Multi-day, requires consistent effort. Ties to real discipline or health habit.
+export async function generateWeeklyQuests(apiKey, { character, weekKey }) {
+  const count = Math.random() > 0.4 ? 3 : 2
+  const prompt = `Generate ${count} hard weekly challenge quests for ${character.name} (Level ${character.level} ${character.class}), week of ${weekKey}.
+Each must be multi-day, require consistent daily effort, and be varied in category.
 
-Return ONLY valid JSON, no markdown:
-{
-  "title": "Epic quest title (5-7 words)",
-  "description": "What must be done this week (1-2 sentences, specific and class-appropriate)",
-  "category": "physical|mental|discipline|social"
-}
+Return ONLY valid JSON array, no markdown:
+[
+  { "title": "Epic title (5-7 words)", "description": "What to do this week (1 sentence, specific)", "category": "physical|mental|discipline|social" }
+]
 
-Examples: no junk food for 7 days, meditate every morning, hit step goal 5 days, call 3 people this week.`
-  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 250)
+Rules:
+- All ${count} tasks must be different categories
+- Real discipline challenges: no junk food 7 days, meditate every morning, hit step goal 5+ days, no phone after 9pm, journal daily, drink 3L water daily
+- Warrior: physical bias. Mage: mental/learning. Rogue: stealth/consistency.
+- Hard but achievable in a week`
+  const text = await callOpenAI(apiKey, [{ role: 'user', content: prompt }], 'gpt-4o-mini', 500)
   const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
-  const data = JSON.parse(cleaned)
-  return { ...data, weekKey, completed: false, progress: 0 }
+  const tasks = JSON.parse(cleaned)
+  return {
+    weekKey,
+    tasks: tasks.slice(0, 3).map((t, i) => ({ ...t, id: i, completed: false })),
+  }
 }
 
 export async function generateWeeklyTitle(apiKey, { character, stats }) {
